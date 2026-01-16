@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useWallet } from '@/context/WalletContext';
-import { ChevronRight, Building2, Scan, Check, X, Loader2, LogOut, History, HelpCircle, Key } from 'lucide-react';
+import { ChevronRight, Building2, Scan, Check, X, Loader2, LogOut, History, HelpCircle, Key, Wallet } from 'lucide-react';
 import QRScanner from '@/components/QRScanner';
 
 interface ScannedBankData {
@@ -12,7 +12,17 @@ interface ScannedBankData {
 
 const Settings = () => {
   const navigate = useNavigate();
-  const { username, disconnect, isConnected, linkedBank, linkBankAccount, walletAddress } = useWallet();
+  const {
+    username,
+    disconnect,
+    isConnected,
+    linkedBank,
+    linkBankAccount,
+    walletAddress,
+    receivingPreference,
+    setReceivingPreference,
+  } = useWallet();
+
   const [showLinkBank, setShowLinkBank] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
@@ -181,9 +191,75 @@ const Settings = () => {
             </div>
             <div>
               <p className="text-lg font-bold">@{username}</p>
-              <p className="text-sm text-muted-foreground">Sui Mainnet</p>
+              <p className="text-sm text-muted-foreground">Sui Testnet</p>
             </div>
           </div>
+        </div>
+
+        {/* Receiving Preferences Section - NEW */}
+        <div className="mb-6 animate-slide-up">
+          <h2 className="text-xs font-semibold tracking-wide uppercase text-muted-foreground mb-3">
+            Receiving Preferences
+          </h2>
+          <div className="card-container p-0 overflow-hidden">
+            {/* Option 1: Wallet */}
+            <button
+              onClick={() => setReceivingPreference('wallet')}
+              className={`w-full settings-row px-5 hover:bg-secondary transition-colors text-left ${receivingPreference === 'wallet' ? 'bg-success/5' : ''
+                }`}
+            >
+              <div className="flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${receivingPreference === 'wallet'
+                    ? 'bg-success/10 text-success'
+                    : 'bg-secondary text-muted-foreground'
+                  }`}>
+                  <Wallet className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="font-semibold text-sm">PayPath Wallet (SUI)</p>
+                  <p className="text-xs text-muted-foreground">Receive directly to your wallet</p>
+                </div>
+              </div>
+              {receivingPreference === 'wallet' && (
+                <Check className="w-5 h-5 text-success" />
+              )}
+            </button>
+
+            {/* Option 2: Bank */}
+            <button
+              onClick={() => linkedBank && setReceivingPreference('bank')}
+              disabled={!linkedBank}
+              className={`w-full settings-row px-5 transition-colors text-left ${!linkedBank
+                  ? 'opacity-50 cursor-not-allowed'
+                  : receivingPreference === 'bank'
+                    ? 'bg-success/5 hover:bg-secondary'
+                    : 'hover:bg-secondary'
+                }`}
+            >
+              <div className="flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${receivingPreference === 'bank'
+                    ? 'bg-success/10 text-success'
+                    : 'bg-secondary text-muted-foreground'
+                  }`}>
+                  <Building2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="font-semibold text-sm">
+                    {linkedBank ? `${linkedBank.bankName} (****${linkedBank.accountNumber.slice(-4)})` : 'No Bank Linked'}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {linkedBank ? 'Auto-convert SUI to VND' : 'Link a bank account first'}
+                  </p>
+                </div>
+              </div>
+              {receivingPreference === 'bank' && linkedBank && (
+                <Check className="w-5 h-5 text-success" />
+              )}
+            </button>
+          </div>
+          <p className="text-xs text-muted-foreground mt-2 px-1">
+            When others send to your PayPath QR, funds will go to your selected destination.
+          </p>
         </div>
 
         {/* Linked Bank Section */}
@@ -223,7 +299,7 @@ const Settings = () => {
                 </div>
                 <div className="text-left">
                   <p className="font-semibold text-sm">Link Bank Account</p>
-                  <p className="text-xs text-muted-foreground">Receive VND to your bank</p>
+                  <p className="text-xs text-muted-foreground">Enable bank receiving option</p>
                 </div>
               </div>
               <ChevronRight className="w-5 h-5 text-muted-foreground" />

@@ -24,7 +24,7 @@ const Login = () => {
 
         {/* Logo */}
         <div className="text-center animate-fade-in">
-          <h1 className="text-4xl font-black tracking-tight">PayPath.</h1>
+          <h1 className="text-4xl font-black tracking-tight">PayPath</h1>
           <p className="text-muted-foreground text-sm mt-2">
             Sui Blockchain Wallet
           </p>

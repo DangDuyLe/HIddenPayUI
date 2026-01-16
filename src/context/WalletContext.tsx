@@ -20,7 +20,11 @@ interface PayPathUser {
   username: string;
   avatar?: string;
   linkedBank?: LinkedBank;
+  receivingPreference?: 'wallet' | 'bank';
 }
+
+// Receiving preference type
+type ReceivingPreference = 'wallet' | 'bank';
 
 // Mock registered users database
 const registeredUsers: Record<string, PayPathUser> = {
@@ -32,6 +36,7 @@ const registeredUsers: Record<string, PayPathUser> = {
       accountNumber: '1234567890',
       beneficiaryName: 'NGUYEN VAN A',
     },
+    receivingPreference: 'bank',
   },
   '0987654321': {
     username: 'alice_sui',
@@ -41,6 +46,7 @@ const registeredUsers: Record<string, PayPathUser> = {
       accountNumber: '0987654321',
       beneficiaryName: 'TRAN THI B',
     },
+    receivingPreference: 'wallet',
   },
 };
 
@@ -53,16 +59,19 @@ interface WalletState {
   transactions: Transaction[];
   linkedBank: LinkedBank | null;
   contacts: string[];
+  receivingPreference: ReceivingPreference;
 }
 
 interface WalletContextType extends WalletState {
   connectWallet: (address?: string) => void;
   setUsername: (username: string) => void;
-  sendSui: (to: string, amount: number, isOffRamp?: boolean) => void;
+  sendSui: (to: string, amount: number) => void;
   disconnect: () => void;
   linkBankAccount: (bank: LinkedBank) => void;
   addContact: (username: string) => void;
   lookupBankAccount: (accountNumber: string) => PayPathUser | null;
+  lookupUsername: (username: string) => PayPathUser | null;
+  setReceivingPreference: (preference: ReceivingPreference) => void;
 }
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
@@ -83,6 +92,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     transactions: mockTransactions,
     linkedBank: null,
     contacts: ['@alice', '@bob'],
+    receivingPreference: 'wallet', // Default to wallet
   });
 
   const connectWallet = (address?: string) => {
@@ -97,14 +107,13 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     setState(prev => ({ ...prev, username }));
   };
 
-  const sendSui = (to: string, amount: number, isOffRamp?: boolean) => {
+  const sendSui = (to: string, amount: number) => {
     const newTransaction: Transaction = {
       id: Date.now().toString(),
       type: 'sent',
       to,
       amount,
       timestamp: new Date(),
-      isOffRamp,
     };
     setState(prev => ({
       ...prev,
@@ -124,6 +133,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       transactions: mockTransactions,
       linkedBank: null,
       contacts: ['@alice', '@bob'],
+      receivingPreference: 'wallet',
     });
   };
 
@@ -144,6 +154,21 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     return registeredUsers[accountNumber] || null;
   };
 
+  // Lookup user by username
+  const lookupUsername = (username: string): PayPathUser | null => {
+    const cleanUsername = username.replace('@', '').toLowerCase();
+    for (const user of Object.values(registeredUsers)) {
+      if (user.username.toLowerCase() === cleanUsername) {
+        return user;
+      }
+    }
+    return null;
+  };
+
+  const setReceivingPreference = (preference: ReceivingPreference) => {
+    setState(prev => ({ ...prev, receivingPreference: preference }));
+  };
+
   return (
     <WalletContext.Provider value={{
       ...state,
@@ -154,6 +179,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       linkBankAccount,
       addContact,
       lookupBankAccount,
+      lookupUsername,
+      setReceivingPreference,
     }}>
       {children}
     </WalletContext.Provider>

@@ -1,29 +1,67 @@
-import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useWallet } from '@/context/WalletContext';
-
-type ReceiveMode = 'wallet' | 'bank';
+import { Copy, Share2, Settings } from 'lucide-react';
+import { useState } from 'react';
 
 const Receive = () => {
   const navigate = useNavigate();
   const { username, isConnected } = useWallet();
-  const [mode, setMode] = useState<ReceiveMode>('wallet');
+  const [copied, setCopied] = useState(false);
 
   if (!isConnected || !username) {
     navigate('/');
     return null;
   }
 
-  // Generate a simple visual QR representation
-  const QRPlaceholder = () => (
-    <div className="w-48 h-48 border-2 border-foreground mx-auto flex items-center justify-center">
-      <div className="grid grid-cols-5 gap-1">
-        {Array.from({ length: 25 }).map((_, i) => (
-          <div 
-            key={i} 
-            className={`w-6 h-6 ${Math.random() > 0.5 ? 'bg-foreground' : 'bg-background border border-border'}`}
-          />
-        ))}
+  // Generate PayPath QR data (static, based on username only)
+  const qrData = `paypath:@${username}`;
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(`@${username}`);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'PayPath',
+          text: `Send me SUI via PayPath: @${username}`,
+          url: `https://paypath.app/@${username}`,
+        });
+      } catch (err) {
+        console.log('Share cancelled');
+      }
+    } else {
+      handleCopy();
+    }
+  };
+
+  // Generate a visual QR placeholder (will be replaced with real QR library)
+  const QRCode = () => (
+    <div className="w-56 h-56 bg-white p-4 rounded-2xl shadow-sm border border-border mx-auto">
+      <div className="w-full h-full border-2 border-foreground rounded-lg flex items-center justify-center relative">
+        {/* QR Pattern Placeholder */}
+        <div className="grid grid-cols-7 gap-1 p-2">
+          {Array.from({ length: 49 }).map((_, i) => {
+            // Create a pattern based on username hash
+            const hash = (username.charCodeAt(i % username.length) + i) % 3;
+            return (
+              <div
+                key={i}
+                className={`w-4 h-4 rounded-sm ${hash === 0 ? 'bg-foreground' : hash === 1 ? 'bg-foreground/60' : 'bg-transparent border border-border'
+                  }`}
+              />
+            );
+          })}
+        </div>
+        {/* Center Logo */}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center shadow-sm">
+            <span className="text-lg font-black">P</span>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -34,7 +72,7 @@ const Receive = () => {
         {/* Header */}
         <div className="flex justify-between items-center mb-8 animate-fade-in">
           <h1 className="text-xl font-bold">Receive</h1>
-          <button 
+          <button
             onClick={() => navigate('/dashboard')}
             className="text-muted-foreground text-sm font-medium hover:text-foreground transition-colors"
           >
@@ -42,39 +80,44 @@ const Receive = () => {
           </button>
         </div>
 
-        {/* QR Code Area */}
-        <div className="flex-1 flex flex-col justify-center items-center animate-slide-up">
-          <QRPlaceholder />
-          
-          <div className="mt-6 text-center">
-            <p className="font-semibold text-lg">@{username}</p>
-            <p className="text-muted-foreground text-sm mt-1">
-              {mode === 'wallet' ? 'Receive SUI to wallet' : 'Receive VND to bank'}
-            </p>
+        {/* QR Card - Identity Card Style */}
+        <div className="flex-1 flex flex-col items-center justify-center animate-slide-up">
+          <div className="card-container text-center max-w-sm w-full">
+            {/* QR Code */}
+            <QRCode />
+
+            {/* Username */}
+            <div className="mt-6">
+              <p className="text-2xl font-bold">@{username}</p>
+              <p className="text-muted-foreground text-sm mt-1">PayPath ID</p>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={handleCopy}
+                className="flex-1 py-3 px-4 bg-secondary rounded-xl font-medium text-sm flex items-center justify-center gap-2 hover:bg-muted transition-colors"
+              >
+                <Copy className="w-4 h-4" />
+                {copied ? 'Copied!' : 'Copy'}
+              </button>
+              <button
+                onClick={handleShare}
+                className="flex-1 py-3 px-4 bg-secondary rounded-xl font-medium text-sm flex items-center justify-center gap-2 hover:bg-muted transition-colors"
+              >
+                <Share2 className="w-4 h-4" />
+                Share
+              </button>
+            </div>
           </div>
 
-          {mode === 'bank' && (
-            <div className="mt-4 border border-border p-4 text-center">
-              <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Bank Account</p>
-              <p className="font-mono font-semibold">9704 **** **** 1234</p>
-              <p className="text-sm text-muted-foreground">Vietcombank</p>
-            </div>
-          )}
-        </div>
-
-        {/* Segmented Control */}
-        <div className="segment-control mt-8 animate-slide-up">
+          {/* Settings Link */}
           <button
-            onClick={() => setMode('wallet')}
-            className={`segment-item ${mode === 'wallet' ? 'segment-item-active' : 'segment-item-inactive'}`}
+            onClick={() => navigate('/settings')}
+            className="mt-6 flex items-center gap-2 text-muted-foreground text-sm hover:text-foreground transition-colors"
           >
-            Wallet (SUI)
-          </button>
-          <button
-            onClick={() => setMode('bank')}
-            className={`segment-item ${mode === 'bank' ? 'segment-item-active' : 'segment-item-inactive'}`}
-          >
-            Bank (VND)
+            <Settings className="w-4 h-4" />
+            Manage receiving preferences in Settings
           </button>
         </div>
       </div>

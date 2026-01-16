@@ -6,21 +6,22 @@ import QRScanner from '@/components/QRScanner';
 
 type SendStep = 'input' | 'scan-result' | 'review' | 'success';
 
+type ScanResultType = 'paypath-user' | 'external-bank';
+
 interface ScannedBank {
   bankName: string;
   accountNumber: string;
   beneficiaryName: string;
 }
 
-interface FoundUser {
+interface ScannedPayPathUser {
   username: string;
   avatar: string;
-  bank: ScannedBank;
 }
 
 const Send = () => {
   const navigate = useNavigate();
-  const { sendSui, balance, isConnected, username, lookupBankAccount, addContact } = useWallet();
+  const { sendSui, balance, isConnected, username, lookupBankAccount, lookupUsername, addContact } = useWallet();
 
   const [step, setStep] = useState<SendStep>('input');
   const [recipient, setRecipient] = useState('');
@@ -30,10 +31,10 @@ const Send = () => {
   // QR Scanner state
   const [showScanner, setShowScanner] = useState(false);
 
-  // QR scan results
+  // Scan result state - simplified
+  const [scanResultType, setScanResultType] = useState<ScanResultType | null>(null);
+  const [scannedUser, setScannedUser] = useState<ScannedPayPathUser | null>(null);
   const [scannedBank, setScannedBank] = useState<ScannedBank | null>(null);
-  const [foundUser, setFoundUser] = useState<FoundUser | null>(null);
-  const [isExternalTransfer, setIsExternalTransfer] = useState(false);
   const [saveToContacts, setSaveToContacts] = useState(false);
 
   if (!isConnected || !username) {
@@ -52,48 +53,57 @@ const Send = () => {
     setShowScanner(false);
     console.log('QR Data received:', rawData);
 
-    // TODO: Backend team will parse rawData (VietQR format) here
-    // For now, simulate with mock data based on random
-    const isRegistered = Math.random() > 0.5;
+    // TODO: Backend team will parse rawData here
+    // Check if it's a PayPath QR (paypath:@username) or a VietQR (bank)
 
-    if (isRegistered) {
-      // Scenario A: Registered user
-      const mockBank: ScannedBank = {
-        bankName: 'Vietcombank',
-        accountNumber: '1234567890',
-        beneficiaryName: 'NGUYEN VAN A',
-      };
+    // Simulate detection - in production, parse rawData format
+    const isPayPathQR = Math.random() > 0.5;
 
-      const user = lookupBankAccount(mockBank.accountNumber);
-      if (user) {
-        setFoundUser({
-          username: user.username,
-          avatar: user.avatar || user.username.charAt(0).toUpperCase(),
-          bank: mockBank,
-        });
-        setScannedBank(mockBank);
-        setIsExternalTransfer(false);
-        setStep('scan-result');
-      }
+    if (isPayPathQR) {
+      // PayPath QR - just show username, system handles routing
+      const mockUsername = 'duy3000';
+      const user = lookupUsername(mockUsername);
+
+      setScannedUser({
+        username: mockUsername,
+        avatar: user?.avatar || mockUsername.charAt(0).toUpperCase(),
+      });
+      setScanResultType('paypath-user');
+      setScannedBank(null);
+      setStep('scan-result');
     } else {
-      // Scenario B: Unregistered bank account (stranger)
+      // VietQR (Bank QR) - external transfer
       const mockBank: ScannedBank = {
         bankName: 'Sacombank',
         accountNumber: '5555666677778888',
         beneficiaryName: 'LE VAN C',
       };
 
-      setScannedBank(mockBank);
-      setFoundUser(null);
-      setIsExternalTransfer(true);
+      // Check if this bank account belongs to a PayPath user
+      const registeredUser = lookupBankAccount(mockBank.accountNumber);
+
+      if (registeredUser) {
+        // Bank belongs to a PayPath user - treat as PayPath transfer
+        setScannedUser({
+          username: registeredUser.username,
+          avatar: registeredUser.avatar || registeredUser.username.charAt(0).toUpperCase(),
+        });
+        setScanResultType('paypath-user');
+        setScannedBank(null);
+      } else {
+        // Unregistered bank - external transfer
+        setScannedBank(mockBank);
+        setScanResultType('external-bank');
+        setScannedUser(null);
+      }
       setStep('scan-result');
     }
   };
 
   const proceedFromScanResult = () => {
-    if (foundUser) {
-      setRecipient(`@${foundUser.username}`);
-    } else if (scannedBank) {
+    if (scanResultType === 'paypath-user' && scannedUser) {
+      setRecipient(`@${scannedUser.username}`);
+    } else if (scanResultType === 'external-bank' && scannedBank) {
       setRecipient(`Bank: ${scannedBank.beneficiaryName}`);
     }
     setStep('input');
@@ -121,14 +131,14 @@ const Send = () => {
   };
 
   const handleConfirm = () => {
-    if (saveToContacts && foundUser) {
-      addContact(`@${foundUser.username}`);
+    if (saveToContacts && scannedUser) {
+      addContact(`@${scannedUser.username}`);
     }
-    sendSui(recipient, parseFloat(amount), isExternalTransfer);
+    sendSui(recipient, parseFloat(amount));
     setStep('success');
   };
 
-  // Scan Result Screen
+  // Scan Result Screen - SIMPLIFIED
   if (step === 'scan-result') {
     return (
       <div className="app-container">
@@ -146,8 +156,8 @@ const Send = () => {
 
           {/* Result Card */}
           <div className="flex-1 animate-slide-up">
-            {/* Scenario A: Registered User */}
-            {foundUser && !isExternalTransfer && (
+            {/* PayPath User - Simple display */}
+            {scanResultType === 'paypath-user' && scannedUser && (
               <div className="card-container">
                 <div className="flex items-center gap-4 pb-4 border-b border-border">
                   <div className="w-14 h-14 rounded-full bg-success/10 text-success flex items-center justify-center">
@@ -158,23 +168,14 @@ const Send = () => {
                       <Check className="w-3.5 h-3.5" />
                       PayPath User
                     </div>
-                    <p className="text-xl font-bold">@{foundUser.username}</p>
+                    <p className="text-xl font-bold">@{scannedUser.username}</p>
                   </div>
                 </div>
 
-                <div className="pt-4 space-y-3">
-                  <div className="flex items-center gap-3 text-sm">
-                    <Building2 className="w-4 h-4 text-muted-foreground" />
-                    <span className="text-muted-foreground">{foundUser.bank.bankName}</span>
-                  </div>
-                  <div className="text-sm">
-                    <span className="text-muted-foreground">Account: </span>
-                    <span className="font-mono">{foundUser.bank.accountNumber.slice(0, 4)}...{foundUser.bank.accountNumber.slice(-4)}</span>
-                  </div>
-                  <div className="text-sm">
-                    <span className="text-muted-foreground">Name: </span>
-                    <span className="font-medium">{foundUser.bank.beneficiaryName}</span>
-                  </div>
+                <div className="mt-4 p-4 bg-secondary/50 rounded-xl">
+                  <p className="text-sm text-muted-foreground">
+                    <span className="font-medium text-foreground">You send SUI</span> → System routes to recipient's preferred destination (Wallet or Bank)
+                  </p>
                 </div>
 
                 <div className="mt-6 pt-4 border-t border-border">
@@ -191,8 +192,8 @@ const Send = () => {
               </div>
             )}
 
-            {/* Scenario B: Unregistered / External */}
-            {isExternalTransfer && scannedBank && (
+            {/* External Bank - Warning */}
+            {scanResultType === 'external-bank' && scannedBank && (
               <div className="card-container">
                 <div className="flex items-center gap-4 pb-4 border-b border-border">
                   <div className="w-14 h-14 rounded-full bg-warning/10 text-warning flex items-center justify-center">
@@ -222,7 +223,7 @@ const Send = () => {
                   <div className="flex items-start gap-3">
                     <AlertTriangle className="w-5 h-5 text-warning flex-shrink-0 mt-0.5" />
                     <div>
-                      <p className="text-sm font-semibold text-warning">User not on PayPath</p>
+                      <p className="text-sm font-semibold text-warning">Not on PayPath</p>
                       <p className="text-xs text-muted-foreground mt-1">
                         Your SUI will be converted to VND and sent to their bank account.
                       </p>
@@ -260,9 +261,6 @@ const Send = () => {
             <p className="text-muted-foreground">
               {amount} SUI to {recipient}
             </p>
-            {isExternalTransfer && (
-              <p className="text-sm text-warning mt-2">Converting to VND...</p>
-            )}
           </div>
 
           <button onClick={() => navigate('/dashboard')} className="btn-primary animate-slide-up">
@@ -274,6 +272,8 @@ const Send = () => {
   }
 
   if (step === 'review') {
+    const isExternalTransfer = scanResultType === 'external-bank';
+
     return (
       <div className="app-container">
         <div className="page-wrapper">
@@ -364,7 +364,7 @@ const Send = () => {
                 </div>
                 <div className="text-left">
                   <p className="font-semibold text-sm">Scan QR Code</p>
-                  <p className="text-xs text-muted-foreground">VietQR or PayPath QR</p>
+                  <p className="text-xs text-muted-foreground">PayPath QR or VietQR</p>
                 </div>
               </div>
               <ChevronRight className="w-5 h-5 text-muted-foreground" />
