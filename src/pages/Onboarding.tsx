@@ -11,7 +11,7 @@ const Onboarding = () => {
 
   useEffect(() => {
     if (!isConnected) {
-      navigate('/', { replace: true });
+      navigate('/login', { replace: true });
       return;
     }
 
@@ -19,10 +19,6 @@ const Onboarding = () => {
       navigate('/dashboard', { replace: true });
     }
   }, [isConnected, existingUsername, navigate]);
-
-  if (!isConnected || existingUsername) {
-    return null;
-  }
 
   const handleSubmit = () => {
     const clean = inputUsername.replace('@', '').trim().toLowerCase();

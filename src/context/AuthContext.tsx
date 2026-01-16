@@ -122,7 +122,5 @@ export function getAuthHeader(): string | null {
   return `${type} ${token}`;
 }
 
-export function getApiBaseUrl(): string {
-  return API_BASE_URL;
-}
+
 
