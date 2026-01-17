@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Home, ScanLine, History } from 'lucide-react';
+import { Home, User } from 'lucide-react';
 
 const MobileBottomNav = () => {
     const location = useLocation();
@@ -14,7 +14,6 @@ const MobileBottomNav = () => {
 
     return (
         <nav className="mobile-bottom-nav">
-            {/* Home */}
             <button
                 onClick={() => navigate('/dashboard')}
                 className={`nav-item ${isActive('/dashboard') ? 'active' : ''}`}
@@ -23,24 +22,12 @@ const MobileBottomNav = () => {
                 <span className="nav-label">Home</span>
             </button>
 
-            {/* Scan QR - Center button */}
             <button
-                onClick={() => navigate('/send')}
-                className="nav-item-center"
+                onClick={() => navigate('/settings')}
+                className={`nav-item ${isActive('/settings') ? 'active' : ''}`}
             >
-                <div className="scan-btn">
-                    <ScanLine className="w-5 h-5" />
-                </div>
-                <span className="nav-label">Scan</span>
-            </button>
-
-            {/* History */}
-            <button
-                onClick={() => navigate('/history')}
-                className={`nav-item ${isActive('/history') ? 'active' : ''}`}
-            >
-                <History className="nav-icon" />
-                <span className="nav-label">History</span>
+                <User className="nav-icon" />
+                <span className="nav-label">Account</span>
             </button>
         </nav>
     );
