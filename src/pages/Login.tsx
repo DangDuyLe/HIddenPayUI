@@ -18,11 +18,14 @@ const getCurrentUrl = (): string => {
   return window.location.href;
 };
 
-// Open Slush Wallet app using deeplink
+// Open Slush Wallet app using Universal Link
+// This will open the Slush app and load the dApp in its in-app browser
 const openSlushWallet = () => {
-  const currentUrl = encodeURIComponent(getCurrentUrl());
-  const deepLink = `suiwallet://browser?url=${currentUrl}`;
-  window.location.href = deepLink;
+  const currentUrl = getCurrentUrl();
+  // Remove protocol and use Slush universal link format
+  const urlWithoutProtocol = currentUrl.replace(/^https?:\/\//, '');
+  const universalLink = `https://slush.app/dapp/${urlWithoutProtocol}`;
+  window.location.href = universalLink;
 };
 
 const Login = () => {
