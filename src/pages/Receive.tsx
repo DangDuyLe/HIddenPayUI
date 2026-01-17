@@ -32,9 +32,9 @@ const Receive = () => {
     if (navigator.share) {
       try {
         await navigator.share({
-          title: 'HiddenPay',
-          text: `Send me money: @${username}`,
-          url: `https://paypath.vercel.app/@${username}`,
+          title: 'Receive Money on HiddenWallet',
+          text: `Send money to @${username} on HiddenWallet!`,
+          url: window.location.href,
         });
       } catch (err) {
         handleCopyUsername();

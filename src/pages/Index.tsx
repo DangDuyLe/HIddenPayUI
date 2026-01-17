@@ -17,10 +17,9 @@ const Index = () => {
   }, [isConnected, username, navigate]);
 
   return (
-    <div className="app-container">
-      <div className="page-wrapper justify-center items-center">
-        <h1 className="text-4xl font-black tracking-tight animate-fade-in">HiddenPay</h1>
-      </div>
+    <div className="flex flex-col items-center justify-center min-h-screen py-2">
+      <h1 className="text-4xl font-bold mb-4">Welcome to HiddenWallet</h1>
+      {/* Index page implementation */}
     </div>
   );
 };

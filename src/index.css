@@ -4,7 +4,9 @@
 @tailwind components;
 @tailwind utilities;
 
-/* HiddenPay - Modern Clean Fintech Design System */
+/* HiddenWallet UI - Global Styles
+ * A minimalist, mobile-first design for the HiddenWallet dApp.
+ */
 
 @layer base {
   :root {

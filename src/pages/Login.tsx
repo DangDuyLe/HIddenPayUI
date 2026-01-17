@@ -1,8 +1,8 @@
 import { useNavigate } from 'react-router-dom';
 import { useWallet } from '@/context/WalletContext';
-import { ConnectButton, useCurrentAccount } from '@mysten/dapp-kit';
+import { ConnectButton, useCurrentAccount, useDisconnectWallet } from '@mysten/dapp-kit';
 import { useEffect, useState } from 'react';
-import { Copy, Check, ExternalLink } from 'lucide-react';
+import { Copy, Check, LogOut, Wallet, ChevronRight } from 'lucide-react';
 
 const isMobileDevice = (): boolean => {
   if (typeof window === 'undefined') return false;
@@ -20,12 +20,14 @@ const isInSlushBrowser = (): boolean => {
 
 const Login = () => {
   const navigate = useNavigate();
-  const { connectWallet, isConnected, username } = useWallet();
+  const { connectWallet, isConnected, username, disconnect } = useWallet();
   const currentAccount = useCurrentAccount();
+  const { mutate: disconnectSuiWallet } = useDisconnectWallet();
   const [hasClickedConnect, setHasClickedConnect] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isInWalletBrowser, setIsInWalletBrowser] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [showWalletOptions, setShowWalletOptions] = useState(false);
 
   useEffect(() => {
     setIsMobile(isMobileDevice());
@@ -50,7 +52,29 @@ const Login = () => {
   }, [isConnected, username, navigate]);
 
   const handleConnectClick = () => {
+    // If already connected, show options instead of auto-navigating
+    if (currentAccount) {
+      setShowWalletOptions(true);
+      return;
+    }
     setHasClickedConnect(true);
+  };
+
+  const handleContinueWithWallet = () => {
+    if (currentAccount) {
+      connectWallet(currentAccount.address);
+      if (username) {
+        navigate('/dashboard');
+      } else {
+        navigate('/onboarding');
+      }
+    }
+  };
+
+  const handleDisconnect = () => {
+    disconnectSuiWallet();
+    disconnect();
+    setShowWalletOptions(false);
   };
 
   const copyAppLink = async () => {
@@ -73,7 +97,7 @@ const Login = () => {
 
         {/* Center content */}
         <div className="text-center animate-fade-in">
-          <h1 className="text-4xl font-extrabold tracking-tight mb-3">HiddenPay</h1>
+          <h1 className="text-4xl font-extrabold tracking-tight mb-3">HiddenWallet</h1>
           <p className="text-muted-foreground">
             Send money instantly with Sui
           </p>
@@ -127,6 +151,37 @@ const Login = () => {
                 </div>
               </div>
             </>
+          ) : currentAccount && showWalletOptions ? (
+            /* Connected Wallet Options Card */
+            <div className="card-modern p-5 space-y-4 animate-fade-in">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Wallet className="w-5 h-5 text-primary" />
+                </div>
+                <div className="flex-1">
+                  <p className="font-medium">Connected Wallet</p>
+                  <p className="text-sm text-muted-foreground font-mono">
+                    {currentAccount.address.slice(0, 8)}...{currentAccount.address.slice(-6)}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={handleContinueWithWallet}
+                className="btn-primary flex items-center justify-center gap-2"
+              >
+                Continue to App
+                <ChevronRight className="w-4 h-4" />
+              </button>
+
+              <button
+                onClick={handleDisconnect}
+                className="w-full py-3 rounded-xl border border-destructive text-destructive hover:bg-destructive hover:text-white transition-colors flex items-center justify-center gap-2"
+              >
+                <LogOut className="w-4 h-4" />
+                Disconnect Wallet
+              </button>
+            </div>
           ) : (
             <div onClick={handleConnectClick}>
               <div className="sui-connect-wrapper">
@@ -136,7 +191,7 @@ const Login = () => {
           )}
 
           <p className="text-center text-xs text-muted-foreground">
-            Powered by Sui Blockchain
+            Powered by <span className="font-medium">Sui</span> & <span className="font-medium">Gaian</span>
           </p>
         </div>
       </div>

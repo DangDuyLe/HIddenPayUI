@@ -14,7 +14,8 @@ interface ExternalBankInfo {
   accountNumber: string;
   beneficiaryName: string;
   amount?: number;
-  isLinkedToHiddenPay?: boolean;
+  memo?: string;
+  isLinkedToHiddenWallet: boolean;
   linkedUsername?: string;
 }
 
@@ -160,8 +161,9 @@ const Send = () => {
     setIsParsing(true);
 
     try {
-      if (gaian.isHiddenPayQr(qrString)) {
-        const extractedUsername = gaian.extractHiddenPayUsername(qrString);
+      // 1. Check for HiddenWallet internal transfer (username)
+      if (gaian.isHiddenWalletQr(qrString)) {
+        const extractedUsername = gaian.extractHiddenWalletUsername(qrString);
         const user = lookupUsername(extractedUsername);
 
         if (user && user.walletAddress) {
@@ -195,7 +197,7 @@ const Send = () => {
       const parsedBank = await gaian.parseQrString(qrString);
 
       if (parsedBank) {
-        // Check if this bank account is linked to a HiddenPay user
+        // Check if this bank account is linked to a HiddenWallet user
         const linkedUser = lookupBankAccount(parsedBank.accountNumber);
 
         setExternalBank({
@@ -203,14 +205,14 @@ const Send = () => {
           accountNumber: parsedBank.accountNumber,
           beneficiaryName: parsedBank.beneficiaryName,
           amount: parsedBank.amount,
-          isLinkedToHiddenPay: !!linkedUser,
+          isLinkedToHiddenWallet: !!linkedUser,
           linkedUsername: linkedUser?.username,
         });
         setRecipient(`${parsedBank.beneficiaryName}`);
         setRecipientDisplayName(`${parsedBank.beneficiaryName} (${parsedBank.bankName})`);
         setScanResult('external');
 
-        // If linked to HiddenPay, use the wallet address
+        // If linked to HiddenWallet, use the wallet address
         if (linkedUser && linkedUser.walletAddress) {
           setRecipientValid(true);
           setRecipientAddress(linkedUser.walletAddress);
@@ -481,17 +483,17 @@ const Send = () => {
                 </div>
 
                 {/* Outside Transfer Warning */}
-                {!externalBank.isLinkedToHiddenPay && (
+                {!externalBank.isLinkedToHiddenWallet && (
                   <div className="flex items-center gap-2 px-3 py-2 bg-amber-500/10 border border-amber-500/30 rounded-xl">
                     <AlertCircle className="w-4 h-4 text-amber-500 flex-shrink-0" />
-                    <span className="text-sm text-amber-500 font-medium">Outside Transfer - Not a HiddenPay user</span>
+                    <span className="text-sm text-amber-500 font-medium">Outside Transfer - Not a HiddenWallet user</span>
                   </div>
                 )}
 
-                {externalBank.isLinkedToHiddenPay && externalBank.linkedUsername && (
+                {externalBank.isLinkedToHiddenWallet && externalBank.linkedUsername && (
                   <div className="flex items-center gap-2 px-3 py-2 bg-success/10 border border-success/30 rounded-xl">
                     <Check className="w-4 h-4 text-success flex-shrink-0" />
-                    <span className="text-sm text-success font-medium">HiddenPay User: @{externalBank.linkedUsername}</span>
+                    <span className="text-sm text-success font-medium">HiddenWallet User: @{externalBank.linkedUsername}</span>
                   </div>
                 )}
 

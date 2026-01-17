@@ -106,9 +106,9 @@ const Settings = () => {
     setParseError('');
 
     try {
-      // Check if it's a HiddenPay QR (username)
-      if (gaian.isHiddenPayQr(qrString)) {
-        setParseError('This is a HiddenPay username QR. Please scan a wallet address QR.');
+      // Check if it's a HiddenWallet QR (username)
+      if (gaian.isHiddenWalletQr(qrString)) {
+        setParseError('This is a HiddenWallet username QR. Please scan a wallet address QR.');
         setIsParsing(false);
         return;
       }
@@ -490,7 +490,7 @@ const Settings = () => {
         </button>
 
         <p className="text-center text-sm text-muted-foreground mt-6">
-          HiddenPay v1.0 · Sui Mainnet
+          HiddenWallet v1.0 · Sui Mainnet
         </p>
       </div>
     </div>
