@@ -23,9 +23,9 @@ const Receive = () => {
     if (navigator.share) {
       try {
         await navigator.share({
-          title: 'PayPath',
+          title: 'HiddenPay',
           text: `Send me money: @${username}`,
-          url: `https://paypath.app/@${username}`,
+          url: `https://hiddenpay.app/@${username}`,
         });
       } catch (err) {
         handleCopy();
@@ -63,7 +63,7 @@ const Receive = () => {
 
           {/* Username */}
           <p className="display-medium text-center mb-2">@{username}</p>
-          <p className="text-muted-foreground">Your PayPath ID</p>
+          <p className="text-muted-foreground">Your HiddenPay ID</p>
 
           {/* Actions */}
           <div className="flex gap-4 mt-8 w-full max-w-xs">

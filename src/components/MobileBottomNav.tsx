@@ -7,8 +7,8 @@ const MobileBottomNav = () => {
 
     const isActive = (path: string) => location.pathname === path;
 
-    // Only show on dashboard (home) page
-    if (location.pathname !== '/dashboard') {
+    // Only show on dashboard and history pages
+    if (location.pathname !== '/dashboard' && location.pathname !== '/history') {
         return null;
     }
 
@@ -36,7 +36,7 @@ const MobileBottomNav = () => {
 
             {/* History */}
             <button
-                onClick={() => navigate('/dashboard')}
+                onClick={() => navigate('/history')}
                 className={`nav-item ${isActive('/history') ? 'active' : ''}`}
             >
                 <History className="nav-icon" />

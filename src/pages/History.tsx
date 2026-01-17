@@ -1,0 +1,103 @@
+import { useNavigate } from 'react-router-dom';
+import { useWallet } from '@/context/WalletContext';
+import { useEffect } from 'react';
+import { ArrowLeft, ArrowDownLeft, ArrowUpRight, RefreshCw } from 'lucide-react';
+
+const History = () => {
+    const navigate = useNavigate();
+    const {
+        transactions,
+        isConnected,
+        username,
+        isLoadingBalance,
+        refreshBalance,
+    } = useWallet();
+
+    useEffect(() => {
+        if (!isConnected || !username) {
+            navigate('/');
+        }
+    }, [isConnected, username, navigate]);
+
+    if (!isConnected || !username) {
+        return null;
+    }
+
+    const formatTime = (date: Date) => {
+        const now = new Date();
+        const diff = now.getTime() - date.getTime();
+        const hours = Math.floor(diff / 3600000);
+        if (hours < 1) return 'Just now';
+        if (hours < 24) return `${hours}h ago`;
+        const days = Math.floor(hours / 24);
+        if (days < 7) return `${days}d ago`;
+        return date.toLocaleDateString('vi-VN');
+    };
+
+    return (
+        <div className="app-container">
+            <div className="page-wrapper">
+                {/* Header */}
+                <div className="flex justify-between items-center mb-6">
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={() => navigate('/dashboard')}
+                            className="p-2 border border-border hover:bg-secondary transition-colors"
+                        >
+                            <ArrowLeft className="w-5 h-5" />
+                        </button>
+                        <h1 className="text-xl font-bold">Transaction History</h1>
+                    </div>
+                    <button
+                        onClick={refreshBalance}
+                        disabled={isLoadingBalance}
+                        className="p-2 border border-border hover:bg-secondary transition-colors disabled:opacity-50"
+                    >
+                        <RefreshCw className={`w-5 h-5 ${isLoadingBalance ? 'animate-spin' : ''}`} />
+                    </button>
+                </div>
+
+                {/* Transactions List */}
+                <div className="flex-1">
+                    {isLoadingBalance && transactions.length === 0 ? (
+                        <div className="py-12 text-center text-muted-foreground">
+                            Loading transactions...
+                        </div>
+                    ) : transactions.length === 0 ? (
+                        <div className="py-12 text-center text-muted-foreground">
+                            <p className="text-lg mb-2">No transactions yet</p>
+                            <p className="text-sm">Your USDC transactions will appear here</p>
+                        </div>
+                    ) : (
+                        <div className="border border-border">
+                            {transactions.map((tx) => (
+                                <div key={tx.id} className="row-item px-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className={`w-10 h-10 flex items-center justify-center ${tx.type === 'sent' ? 'bg-secondary' : 'bg-success/10'
+                                            }`}>
+                                            {tx.type === 'sent'
+                                                ? <ArrowUpRight className="w-5 h-5" />
+                                                : <ArrowDownLeft className="w-5 h-5 text-success" />
+                                            }
+                                        </div>
+                                        <div className="min-w-0 flex-1">
+                                            <p className="font-medium truncate">
+                                                {tx.type === 'sent' ? `To ${tx.to}` : `From ${tx.from}`}
+                                            </p>
+                                            <p className="text-sm text-muted-foreground">{formatTime(tx.timestamp)}</p>
+                                        </div>
+                                    </div>
+                                    <p className={`font-semibold flex-shrink-0 ${tx.type === 'sent' ? 'text-foreground' : 'text-success'}`}>
+                                        {tx.type === 'sent' ? '−' : '+'}{tx.amount.toFixed(2)} USDC
+                                    </p>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export default History;

@@ -405,7 +405,7 @@ const Settings = () => {
         </button>
 
         <p className="text-center text-sm text-muted-foreground mt-6">
-          PayPath v1.0 · Sui Testnet
+          HiddenPay v1.0 · Sui Testnet
         </p>
       </div>
     </div>

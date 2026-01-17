@@ -492,7 +492,7 @@ const Send = () => {
                   <div className="flex items-center gap-2">
                     <Check className="w-4 h-4 text-success" />
                     <span className="text-success font-medium">
-                      {recipientType === 'username' ? 'PayPath User' : 'Valid Address'}
+                      {recipientType === 'username' ? 'HiddenPay User' : 'Valid Address'}
                     </span>
                   </div>
                   <button onClick={clearRecipient} className="text-sm text-muted-foreground hover:text-foreground">
@@ -534,7 +534,7 @@ const Send = () => {
                       onKeyDown={(e) => e.key === 'Enter' && checkRecipient()}
                       placeholder="@username or 0x... address"
                       className={`input-box w-full pr-10 ${recipientValid === true ? 'border-success' :
-                          recipientValid === false ? 'border-destructive' : ''
+                        recipientValid === false ? 'border-destructive' : ''
                         }`}
                     />
                     {recipientValid === true && (

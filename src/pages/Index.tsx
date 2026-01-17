@@ -19,7 +19,7 @@ const Index = () => {
   return (
     <div className="app-container">
       <div className="page-wrapper justify-center items-center">
-        <h1 className="text-4xl font-black tracking-tight animate-fade-in">PayPath</h1>
+        <h1 className="text-4xl font-black tracking-tight animate-fade-in">HiddenPay</h1>
       </div>
     </div>
   );

@@ -11,6 +11,7 @@ import Onboarding from "./pages/Onboarding";
 import Dashboard from "./pages/Dashboard";
 import Send from "./pages/Send";
 import Receive from "./pages/Receive";
+import History from "./pages/History";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
@@ -28,6 +29,7 @@ const App = () => (
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/send" element={<Send />} />
             <Route path="/receive" element={<Receive />} />
+            <Route path="/history" element={<History />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="*" element={<NotFound />} />
           </Routes>

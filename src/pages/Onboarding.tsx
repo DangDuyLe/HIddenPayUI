@@ -51,9 +51,9 @@ const Onboarding = () => {
         </div>
 
         {/* Middle */}
-        <div className="py-8 animate-slide-up">
-          <div className="flex items-center">
-            <span className="text-3xl font-bold mr-2">@</span>
+        <div className="py-8 animate-slide-up w-full max-w-full overflow-hidden">
+          <div className="flex items-center w-full min-w-0">
+            <span className="text-2xl font-bold mr-2 flex-shrink-0">@</span>
             <input
               type="text"
               value={inputUsername}
@@ -63,7 +63,7 @@ const Onboarding = () => {
               }}
               onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
               placeholder="username"
-              className="flex-1 py-4 bg-transparent text-3xl font-bold placeholder:text-muted-foreground focus:outline-none border-b-2 border-border focus:border-foreground transition-colors"
+              className="flex-1 min-w-0 w-full py-4 bg-transparent text-2xl font-bold placeholder:text-muted-foreground focus:outline-none border-b-2 border-border focus:border-foreground transition-colors"
               autoFocus
             />
           </div>
