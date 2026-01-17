@@ -2,9 +2,8 @@ import { useNavigate } from 'react-router-dom';
 import { useWallet } from '@/context/WalletContext';
 import { ConnectButton, useCurrentAccount } from '@mysten/dapp-kit';
 import { useEffect, useState } from 'react';
-import { Copy, Check } from 'lucide-react';
+import { Copy, Check, ExternalLink } from 'lucide-react';
 
-// Detect if user is on mobile device
 const isMobileDevice = (): boolean => {
   if (typeof window === 'undefined') return false;
   const userAgent = navigator.userAgent || navigator.vendor;
@@ -13,11 +12,8 @@ const isMobileDevice = (): boolean => {
   return mobileRegex.test(userAgent.toLowerCase()) || isSmallScreen;
 };
 
-// Detect if running inside Slush wallet browser
 const isInSlushBrowser = (): boolean => {
   if (typeof window === 'undefined') return false;
-  // Slush wallet browser typically injects wallet into window
-  // or has specific user agent
   const userAgent = navigator.userAgent.toLowerCase();
   return userAgent.includes('slush') || userAgent.includes('suiwallet');
 };
@@ -67,42 +63,39 @@ const Login = () => {
     }
   };
 
-  // Mobile outside wallet browser - show instructions
   const showMobileInstructions = isMobile && !isInWalletBrowser;
 
   return (
     <div className="app-container">
       <div className="page-wrapper justify-between">
         {/* Top spacer */}
-        <div className="pt-20" />
+        <div className="pt-16" />
 
         {/* Center content */}
         <div className="text-center animate-fade-in">
-          <h1 className="display-large mb-4">HiddenPay</h1>
-          <p className="text-muted-foreground text-lg">
-            Send money instantly
+          <h1 className="text-4xl font-extrabold tracking-tight mb-3">PayPath</h1>
+          <p className="text-muted-foreground">
+            Send money instantly with Sui
           </p>
         </div>
 
         {/* Bottom section */}
-        <div className="space-y-4 animate-slide-up pb-8">
+        <div className="space-y-4 animate-slide-up pb-6">
           {showMobileInstructions ? (
             <>
-              {/* Mobile: Show instructions */}
-              <div className="bg-card rounded-2xl p-4 space-y-4">
+              <div className="card-modern p-5 space-y-4">
                 <p className="text-sm font-medium text-center">
-                  Open this app in Slush Wallet
+                  Open in Slush Wallet to connect
                 </p>
 
-                {/* Copy link button */}
                 <button
                   onClick={copyAppLink}
-                  className="btn-primary w-full flex items-center justify-center gap-2"
+                  className="btn-primary flex items-center justify-center gap-2"
                 >
                   {copied ? (
                     <>
                       <Check className="w-5 h-5" />
-                      Copied!
+                      Link Copied!
                     </>
                   ) : (
                     <>
@@ -112,28 +105,22 @@ const Login = () => {
                   )}
                 </button>
 
-                {/* Steps */}
                 <div className="space-y-2 text-sm text-muted-foreground">
-                  <div className="flex gap-3 items-start">
-                    <span className="bg-primary/20 text-primary rounded-full w-6 h-6 flex items-center justify-center shrink-0 text-xs font-bold">1</span>
-                    <span>Open <strong className="text-foreground">Slush Wallet</strong> app</span>
+                  <div className="flex gap-3 items-center">
+                    <span className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">1</span>
+                    <span>Open <strong className="text-foreground">Slush Wallet</strong></span>
                   </div>
-                  <div className="flex gap-3 items-start">
-                    <span className="bg-primary/20 text-primary rounded-full w-6 h-6 flex items-center justify-center shrink-0 text-xs font-bold">2</span>
+                  <div className="flex gap-3 items-center">
+                    <span className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">2</span>
                     <span>Go to <strong className="text-foreground">Apps</strong> tab</span>
                   </div>
-                  <div className="flex gap-3 items-start">
-                    <span className="bg-primary/20 text-primary rounded-full w-6 h-6 flex items-center justify-center shrink-0 text-xs font-bold">3</span>
-                    <span>Paste the link in the search bar</span>
-                  </div>
-                  <div className="flex gap-3 items-start">
-                    <span className="bg-primary/20 text-primary rounded-full w-6 h-6 flex items-center justify-center shrink-0 text-xs font-bold">4</span>
-                    <span>Tap <strong className="text-foreground">Connect</strong></span>
+                  <div className="flex gap-3 items-center">
+                    <span className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">3</span>
+                    <span>Paste link & tap <strong className="text-foreground">Connect</strong></span>
                   </div>
                 </div>
               </div>
 
-              {/* Also show connect button for in-browser wallet extensions */}
               <div onClick={handleConnectClick}>
                 <div className="sui-connect-wrapper">
                   <ConnectButton />
@@ -141,7 +128,6 @@ const Login = () => {
               </div>
             </>
           ) : (
-            // Desktop or inside wallet browser - show normal connect
             <div onClick={handleConnectClick}>
               <div className="sui-connect-wrapper">
                 <ConnectButton />
@@ -149,7 +135,7 @@ const Login = () => {
             </div>
           )}
 
-          <p className="text-center text-sm text-muted-foreground">
+          <p className="text-center text-xs text-muted-foreground">
             Powered by Sui Blockchain
           </p>
         </div>
