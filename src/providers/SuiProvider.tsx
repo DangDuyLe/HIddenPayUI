@@ -21,7 +21,7 @@ interface SuiProviderProps {
 export function SuiProvider({ children }: SuiProviderProps) {
     return (
         <QueryClientProvider client={queryClient}>
-            <SuiClientProvider networks={networkConfig} defaultNetwork="mainnet">
+            <SuiClientProvider networks={networkConfig} defaultNetwork="testnet">
                 <WalletProvider autoConnect={true}>
                     {children}
                 </WalletProvider>
