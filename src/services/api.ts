@@ -55,6 +55,16 @@ export const changeUsername = (newUsername: string) => api.patch('/users/profile
 
 export const lookupUser = (username: string) => api.get(`/users/lookup?username=${username}`);
 
+export type CheckUsernameResponseDto = {
+  available: boolean;
+};
+
+export const checkUsername = (username: string) =>
+  api.get<CheckUsernameResponseDto>('/users/check-username', { params: { username } });
+
+export const postOnboarding = (dto: { username: string; email?: string; referralUsername?: string }) =>
+  api.post('/users/onboarding', dto);
+
 export const scanQr = (qrString: string) => api.post('/transfer/scan', { qrString });
 
 export default api;

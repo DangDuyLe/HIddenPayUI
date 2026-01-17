@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useWallet } from '@/context/WalletContext';
+import { checkUsername, postOnboarding } from '@/services/api';
 import { Mail, Users } from 'lucide-react';
 
 const Onboarding = () => {
@@ -22,7 +23,7 @@ const Onboarding = () => {
     return null;
   }
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const clean = inputUsername.replace('@', '').trim().toLowerCase();
 
     if (clean.length < 3) {
@@ -35,21 +36,36 @@ const Onboarding = () => {
       return;
     }
 
-    // Validate email if provided
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       setError('Please enter a valid email address');
       return;
     }
 
     setIsChecking(true);
+    setError('');
 
-    // Log registration data (email and referral can be sent to backend later)
+    try {
+      const res = await checkUsername(clean);
+      const available = Boolean(res.data?.available);
+      if (!available) {
+        setError('Username already taken');
+        return;
+      }
 
-    // Simulate check
-    setTimeout(() => {
+      await postOnboarding({
+        username: clean,
+        email: email || undefined,
+        referralUsername: referral || undefined,
+      });
+
       setUsername(clean);
       navigate('/dashboard');
-    }, 500);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Onboarding failed';
+      setError(message);
+    } finally {
+      setIsChecking(false);
+    }
   };
 
   return (
