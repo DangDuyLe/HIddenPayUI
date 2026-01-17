@@ -36,7 +36,7 @@ interface LinkedWallet {
   name: string;
 }
 
-interface PayPathUser {
+interface HiddenPayUser {
   username: string;
   avatar?: string;
   walletAddress?: string;
@@ -47,7 +47,7 @@ type DefaultAccountType = 'wallet' | 'bank';
 type KYCStatus = 'unverified' | 'pending' | 'verified';
 
 // Mock registered users database
-const registeredUsers: Record<string, PayPathUser> = {
+const registeredUsers: Record<string, HiddenPayUser> = {
   'duy3000': {
     username: 'duy3000',
     avatar: 'D',
@@ -102,8 +102,8 @@ interface WalletContextType extends WalletState {
   removeLinkedWallet: (id: string) => void;
   setDefaultAccount: (id: string, type: DefaultAccountType) => void;
   addContact: (username: string) => void;
-  lookupBankAccount: (accountNumber: string) => PayPathUser | null;
-  lookupUsername: (username: string) => PayPathUser | null;
+  lookupBankAccount: (accountNumber: string) => HiddenPayUser | null;
+  lookupUsername: (username: string) => HiddenPayUser | null;
   getDefaultAccount: () => { id: string; type: DefaultAccountType; name: string } | null;
   refreshBalance: () => Promise<void>;
   isValidWalletAddress: (address: string) => boolean;
@@ -501,7 +501,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     }));
   };
 
-  const lookupBankAccount = (accountNumber: string): PayPathUser | null => {
+  const lookupBankAccount = (accountNumber: string): HiddenPayUser | null => {
     for (const user of Object.values(registeredUsers)) {
       if (user.linkedBank?.accountNumber === accountNumber) {
         return user;
@@ -510,7 +510,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     return null;
   };
 
-  const lookupUsername = (username: string): PayPathUser | null => {
+  const lookupUsername = (username: string): HiddenPayUser | null => {
     const cleanUsername = username.replace('@', '').toLowerCase();
     return registeredUsers[cleanUsername] || null;
   };

@@ -32,7 +32,7 @@ const Receive = () => {
     if (navigator.share) {
       try {
         await navigator.share({
-          title: 'PayPath',
+          title: 'HiddenPay',
           text: `Send me money: @${username}`,
           url: `https://paypath.vercel.app/@${username}`,
         });
@@ -44,7 +44,7 @@ const Receive = () => {
     }
   };
 
-  const shortAddress = walletAddress 
+  const shortAddress = walletAddress
     ? `${walletAddress.slice(0, 8)}...${walletAddress.slice(-6)}`
     : '';
 

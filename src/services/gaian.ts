@@ -133,23 +133,23 @@ export async function parseQrString(qrString: string): Promise<ParsedBankInfo | 
 }
 
 /**
- * Check if a string starts with PayPath prefix
+ * Check if a string starts with HiddenPay prefix
  */
-export function isPayPathQr(str: string): boolean {
+export function isHiddenPayQr(str: string): boolean {
     const trimmed = str.trim();
     if (trimmed.startsWith('@')) return true;
-    if (trimmed.toLowerCase().startsWith('paypath:')) return true;
+    if (trimmed.toLowerCase().startsWith('hiddenpay:')) return true;
     return false;
 }
 
 /**
- * Extract username from PayPath QR string
+ * Extract username from HiddenPay QR string
  */
-export function extractPayPathUsername(str: string): string {
+export function extractHiddenPayUsername(str: string): string {
     let username = str.trim();
 
-    if (username.toLowerCase().startsWith('paypath:')) {
-        username = username.substring(8);
+    if (username.toLowerCase().startsWith('hiddenpay:')) {
+        username = username.substring(10);
     }
 
     if (username.startsWith('@')) {

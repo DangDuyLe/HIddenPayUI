@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useWallet } from '@/context/WalletContext';
 import { Scan, Check, AlertTriangle, ChevronDown, Wallet, Building2, Loader2, X, User, AlertCircle, CreditCard, Copy } from 'lucide-react';
 import QRScanner from '@/components/QRScanner';
@@ -14,12 +14,13 @@ interface ExternalBankInfo {
   accountNumber: string;
   beneficiaryName: string;
   amount?: number;
-  isLinkedToPayPath?: boolean;
+  isLinkedToHiddenPay?: boolean;
   linkedUsername?: string;
 }
 
 const Send = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const {
     sendUsdc,
     suiBalance,
@@ -40,6 +41,15 @@ const Send = () => {
   const [amount, setAmount] = useState('');
   const [error, setError] = useState('');
   const [showScanner, setShowScanner] = useState(false);
+
+  // Auto-open scanner if navigated from mobile nav
+  useEffect(() => {
+    if (location.state?.autoScan) {
+      setShowScanner(true);
+      // Clear state so it doesn't reopen on refresh/back
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   const [isChecking, setIsChecking] = useState(false);
   const [recipientValid, setRecipientValid] = useState<boolean | null>(null);
@@ -148,8 +158,8 @@ const Send = () => {
     setIsParsing(true);
 
     try {
-      if (gaian.isPayPathQr(qrString)) {
-        const extractedUsername = gaian.extractPayPathUsername(qrString);
+      if (gaian.isHiddenPayQr(qrString)) {
+        const extractedUsername = gaian.extractHiddenPayUsername(qrString);
         const user = lookupUsername(extractedUsername);
 
         if (user && user.walletAddress) {
@@ -183,7 +193,7 @@ const Send = () => {
       const parsedBank = await gaian.parseQrString(qrString);
 
       if (parsedBank) {
-        // Check if this bank account is linked to a PayPath user
+        // Check if this bank account is linked to a HiddenPay user
         const linkedUser = lookupBankAccount(parsedBank.accountNumber);
 
         setExternalBank({
@@ -191,14 +201,14 @@ const Send = () => {
           accountNumber: parsedBank.accountNumber,
           beneficiaryName: parsedBank.beneficiaryName,
           amount: parsedBank.amount,
-          isLinkedToPayPath: !!linkedUser,
+          isLinkedToHiddenPay: !!linkedUser,
           linkedUsername: linkedUser?.username,
         });
         setRecipient(`${parsedBank.beneficiaryName}`);
         setRecipientDisplayName(`${parsedBank.beneficiaryName} (${parsedBank.bankName})`);
         setScanResult('external');
 
-        // If linked to PayPath, use the wallet address
+        // If linked to HiddenPay, use the wallet address
         if (linkedUser && linkedUser.walletAddress) {
           setRecipientValid(true);
           setRecipientAddress(linkedUser.walletAddress);
@@ -378,6 +388,10 @@ const Send = () => {
                 <span className="text-muted-foreground text-sm">Fee (0.2%)</span>
                 <span className="text-sm">{(parseFloat(amount) * 0.002).toFixed(4)} USDC</span>
               </div>
+              <div className="flex justify-between items-center py-3">
+                <span className="text-muted-foreground text-sm">Network Fee</span>
+                <span className="text-sm">~0.005 SUI</span>
+              </div>
               <div className="flex justify-between items-center py-3 bg-secondary -mx-4 px-4 rounded-xl">
                 <span className="font-semibold text-sm">Total</span>
                 <span className="font-bold">{(parseFloat(amount) + parseFloat(amount) * 0.002).toFixed(2)} USDC</span>
@@ -506,17 +520,17 @@ const Send = () => {
                 </div>
 
                 {/* Outside Transfer Warning */}
-                {!externalBank.isLinkedToPayPath && (
+                {!externalBank.isLinkedToHiddenPay && (
                   <div className="flex items-center gap-2 px-3 py-2 bg-amber-500/10 border border-amber-500/30 rounded-xl">
                     <AlertCircle className="w-4 h-4 text-amber-500 flex-shrink-0" />
-                    <span className="text-sm text-amber-500 font-medium">Outside Transfer - Not a PayPath user</span>
+                    <span className="text-sm text-amber-500 font-medium">Outside Transfer - Not a HiddenPay user</span>
                   </div>
                 )}
 
-                {externalBank.isLinkedToPayPath && externalBank.linkedUsername && (
+                {externalBank.isLinkedToHiddenPay && externalBank.linkedUsername && (
                   <div className="flex items-center gap-2 px-3 py-2 bg-success/10 border border-success/30 rounded-xl">
                     <Check className="w-4 h-4 text-success flex-shrink-0" />
-                    <span className="text-sm text-success font-medium">PayPath User: @{externalBank.linkedUsername}</span>
+                    <span className="text-sm text-success font-medium">HiddenPay User: @{externalBank.linkedUsername}</span>
                   </div>
                 )}
 
@@ -570,7 +584,6 @@ const Send = () => {
                       onBlur={checkRecipient}
                       placeholder="@username or 0x..."
                       className="input-modern pl-10"
-                      disabled={scanResult === 'external'}
                     />
                   </div>
                   {recipientValid === true && (

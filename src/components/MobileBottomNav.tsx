@@ -25,7 +25,7 @@ const MobileBottomNav = () => {
 
             {/* Scan QR - Center */}
             <button
-                onClick={() => navigate('/send')}
+                onClick={() => navigate('/send', { state: { autoScan: true } })}
                 className="nav-item-scan"
             >
                 <div className="scan-button">

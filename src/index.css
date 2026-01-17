@@ -4,7 +4,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* PayPath - Modern Clean Fintech Design System */
+/* HiddenPay - Modern Clean Fintech Design System */
 
 @layer base {
   :root {
@@ -169,9 +169,8 @@
     overflow-y: visible;
   }
 
-  /* Card - modern rounded */
   .card-modern {
-    @apply bg-card rounded-2xl p-4;
+    @apply bg-card rounded-xl p-4 border border-border;
   }
 
   .card-stat {

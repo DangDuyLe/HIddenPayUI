@@ -32,7 +32,7 @@ export function useWalletConnect() {
                 const signClient = await SignClient.init({
                     projectId: PROJECT_ID,
                     metadata: {
-                        name: 'PayPath',
+                        name: 'HiddenPay',
                         description: 'USDC payments via usernames on Sui',
                         url: window.location.origin,
                         icons: [`${window.location.origin}/favicon.ico`],

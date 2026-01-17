@@ -73,7 +73,7 @@ const Login = () => {
 
         {/* Center content */}
         <div className="text-center animate-fade-in">
-          <h1 className="text-4xl font-extrabold tracking-tight mb-3">PayPath</h1>
+          <h1 className="text-4xl font-extrabold tracking-tight mb-3">HiddenPay</h1>
           <p className="text-muted-foreground">
             Send money instantly with Sui
           </p>

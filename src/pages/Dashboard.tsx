@@ -57,7 +57,7 @@ const Dashboard = () => {
 
     // Split balance into whole and decimal
     const balanceWhole = Math.floor(usdcBalance);
-    const balanceDecimal = (usdcBalance - balanceWhole).toFixed(6).slice(1); // .000000
+    const balanceDecimal = (usdcBalance - balanceWhole).toFixed(2).slice(1); // .00
 
     const recentTransactions = transactions.slice(0, 3);
 
@@ -76,10 +76,10 @@ const Dashboard = () => {
                         <span className="font-medium text-sm">{username}</span>
                     </button>
 
-                    {/* Reward Points Badge */}
-                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-amber-500/20 to-yellow-500/20 border border-amber-500/30 rounded-full">
-                        <span className="text-base">🏆</span>
-                        <span className="text-sm font-semibold text-amber-500">{rewardPoints.toLocaleString()} pts</span>
+                    {/* Reward Points Badge - Subtle */}
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-secondary rounded-full transition-colors hover:bg-secondary/80 cursor-default">
+                        <span className="text-sm">🏆</span>
+                        <span className="text-sm font-medium">{rewardPoints.toLocaleString()} pts</span>
                     </div>
                 </div>
 
@@ -178,60 +178,29 @@ const Dashboard = () => {
 
                     <div className="card-modern space-y-1">
                         {recentTransactions.length > 0 ? (
-                            recentTransactions.map((tx) => {
-                                // Use tx.id as digest (real blockchain txs store hash in id)
-                                const txHash = tx.digest || tx.id;
-                                const truncatedHash = txHash.length > 12
-                                    ? `${txHash.slice(0, 6)}...${txHash.slice(-4)}`
-                                    : txHash;
-
-                                return (
-                                    <div key={tx.id} className="flex items-center justify-between py-3">
-                                        <div className="flex items-center gap-3">
-                                            <div className={`icon-circle ${tx.type === 'sent' ? 'bg-secondary' : 'bg-success/10'}`}>
-                                                {tx.type === 'sent'
-                                                    ? <ArrowUpRight className="w-4 h-4" />
-                                                    : <ArrowDownLeft className="w-4 h-4 text-success" />
-                                                }
-                                            </div>
-                                            <div>
-                                                <div className="flex items-center gap-2">
-                                                    <p className="font-medium text-sm">
-                                                        {tx.type === 'sent' ? 'Sent' : 'Received'} USDC
-                                                    </p>
-                                                    <div className="flex items-center gap-1">
-                                                        <span className="text-xs text-muted-foreground">•</span>
-                                                        <a
-                                                            href={`https://suiscan.xyz/mainnet/tx/${txHash}`}
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            className="text-xs text-muted-foreground font-mono hover:text-foreground hover:underline transition-colors"
-                                                        >
-                                                            {truncatedHash}
-                                                        </a>
-                                                        <button
-                                                            onClick={() => copyDigest(txHash)}
-                                                            className="p-0.5 hover:bg-secondary rounded transition-colors"
-                                                        >
-                                                            {copiedDigest === txHash ? (
-                                                                <Check className="w-3 h-3 text-success" />
-                                                            ) : (
-                                                                <Copy className="w-3 h-3 text-muted-foreground" />
-                                                            )}
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                                <p className="text-xs text-muted-foreground">
-                                                    {tx.type === 'sent' ? `To ${tx.to}` : `From ${tx.from}`} • {formatTime(tx.timestamp)}
-                                                </p>
-                                            </div>
+                            recentTransactions.map((tx) => (
+                                <div key={tx.id} className="flex items-center justify-between py-3">
+                                    <div className="flex items-center gap-3">
+                                        <div className={`icon-circle ${tx.type === 'sent' ? 'bg-secondary' : 'bg-success/10'}`}>
+                                            {tx.type === 'sent'
+                                                ? <ArrowUpRight className="w-4 h-4" />
+                                                : <ArrowDownLeft className="w-4 h-4 text-success" />
+                                            }
                                         </div>
-                                        <p className={`font-semibold text-sm ${tx.type === 'sent' ? '' : 'text-success'}`}>
-                                            {tx.type === 'sent' ? '−' : '+'}{tx.amount.toFixed(3)}
-                                        </p>
+                                        <div>
+                                            <p className="font-medium text-sm">
+                                                {tx.type === 'sent' ? 'Sent' : 'Received'} USDC
+                                            </p>
+                                            <p className="text-xs text-muted-foreground">
+                                                {formatTime(tx.timestamp)}
+                                            </p>
+                                        </div>
                                     </div>
-                                );
-                            })
+                                    <p className={`font-semibold ${tx.type === 'sent' ? '' : 'text-success'}`}>
+                                        {tx.type === 'sent' ? '−' : '+'}{tx.amount.toFixed(3)}
+                                    </p>
+                                </div>
+                            ))
                         ) : (
                             <div className="py-8 text-center text-muted-foreground text-sm">
                                 No transactions yet

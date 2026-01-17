@@ -106,9 +106,9 @@ const Settings = () => {
     setParseError('');
 
     try {
-      // Check if it's a PayPath QR (username)
-      if (gaian.isPayPathQr(qrString)) {
-        setParseError('This is a PayPath username QR. Please scan a wallet address QR.');
+      // Check if it's a HiddenPay QR (username)
+      if (gaian.isHiddenPayQr(qrString)) {
+        setParseError('This is a HiddenPay username QR. Please scan a wallet address QR.');
         setIsParsing(false);
         return;
       }
@@ -150,17 +150,23 @@ const Settings = () => {
         />
         <div className="app-container">
           <div className="page-wrapper">
-            <div className="flex justify-between items-center mb-8 animate-fade-in">
+            {/* Header */}
+            <div className="flex justify-between items-center mb-6 animate-fade-in">
               <h1 className="text-xl font-bold">Add Wallet</h1>
-              <button onClick={() => { setView('main'); setParseError(''); setNewWalletAddress(''); setNewWalletName(''); }} className="btn-ghost">Cancel</button>
+              <button
+                onClick={() => { setView('main'); setParseError(''); setNewWalletAddress(''); setNewWalletName(''); }}
+                className="text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Cancel
+              </button>
             </div>
 
-            <div className="flex-1 space-y-6 animate-slide-up">
+            <div className="flex-1 space-y-4 animate-slide-up">
               {/* Scan QR Button */}
               <button
                 onClick={() => setShowScanner(true)}
                 disabled={isParsing}
-                className="w-full py-4 border border-border text-center font-medium hover:bg-secondary transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                className="w-full py-4 rounded-xl bg-secondary hover:bg-secondary/80 text-center font-medium transition-all flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 {isParsing ? (
                   <>
@@ -177,44 +183,48 @@ const Settings = () => {
 
               {/* Parse Error */}
               {parseError && (
-                <div className="flex items-center gap-2 p-4 border border-destructive text-destructive">
+                <div className="flex items-center gap-3 p-4 rounded-xl bg-destructive/10 text-destructive">
                   <AlertTriangle className="w-5 h-5 flex-shrink-0" />
                   <p className="font-medium text-sm">{parseError}</p>
                 </div>
               )}
 
-              <div className="flex items-center gap-3 text-muted-foreground text-sm">
+              {/* Or Divider */}
+              <div className="flex items-center gap-3 text-muted-foreground text-sm py-2">
                 <div className="flex-1 h-px bg-border" />
                 <span>or enter manually</span>
                 <div className="flex-1 h-px bg-border" />
               </div>
 
-              <div>
-                <p className="label-caps mb-2">Wallet Name</p>
-                <input
-                  type="text"
-                  value={newWalletName}
-                  onChange={(e) => setNewWalletName(e.target.value)}
-                  placeholder="e.g. Trading Wallet"
-                  className="input-box w-full"
-                />
-              </div>
-              <div>
-                <p className="label-caps mb-2">Address</p>
-                <input
-                  type="text"
-                  value={newWalletAddress}
-                  onChange={(e) => { setNewWalletAddress(e.target.value); setParseError(''); }}
-                  placeholder="0x..."
-                  className="input-box w-full font-mono"
-                />
+              {/* Input Card */}
+              <div className="rounded-xl border border-border p-4 space-y-4">
+                <div>
+                  <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">Wallet Name</label>
+                  <input
+                    type="text"
+                    value={newWalletName}
+                    onChange={(e) => setNewWalletName(e.target.value)}
+                    placeholder="e.g. Trading Wallet"
+                    className="input-modern w-full"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">Wallet Address</label>
+                  <input
+                    type="text"
+                    value={newWalletAddress}
+                    onChange={(e) => { setNewWalletAddress(e.target.value); setParseError(''); }}
+                    placeholder="0x..."
+                    className="input-modern w-full font-mono text-sm"
+                  />
+                </div>
               </div>
             </div>
 
             <button
               onClick={handleAddWallet}
               disabled={!newWalletName || !newWalletAddress}
-              className="btn-primary mt-8"
+              className="btn-primary mt-6"
             >
               Add Wallet
             </button>
@@ -236,16 +246,23 @@ const Settings = () => {
         />
         <div className="app-container">
           <div className="page-wrapper">
-            <div className="flex justify-between items-center mb-8 animate-fade-in">
+            {/* Header */}
+            <div className="flex justify-between items-center mb-6 animate-fade-in">
               <h1 className="text-xl font-bold">Link Bank</h1>
-              <button onClick={() => { setView('main'); setScannedBank(null); setParseError(''); }} className="btn-ghost">Cancel</button>
+              <button
+                onClick={() => { setView('main'); setScannedBank(null); setParseError(''); }}
+                className="text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Cancel
+              </button>
             </div>
 
-            <div className="flex-1 animate-slide-up">
+            <div className="flex-1 space-y-4 animate-slide-up">
+              {/* Scan QR Button */}
               <button
                 onClick={() => setShowScanner(true)}
                 disabled={isParsing}
-                className="w-full py-4 border border-border text-center font-medium hover:bg-secondary transition-colors mb-6 flex items-center justify-center gap-2 disabled:opacity-50"
+                className="w-full py-4 rounded-xl bg-secondary hover:bg-secondary/80 text-center font-medium transition-all flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 {isParsing ? (
                   <>
@@ -262,33 +279,44 @@ const Settings = () => {
 
               {/* Parse Error */}
               {parseError && (
-                <div className="flex items-center gap-2 p-4 border border-destructive text-destructive mb-6">
-                  <AlertTriangle className="w-5 h-5" />
-                  <p className="font-medium">{parseError}</p>
+                <div className="flex items-center gap-3 p-4 rounded-xl bg-destructive/10 text-destructive">
+                  <AlertTriangle className="w-5 h-5 flex-shrink-0" />
+                  <p className="font-medium text-sm">{parseError}</p>
                 </div>
               )}
 
               {/* Scanned Bank Info */}
               {scannedBank && (
-                <div className="border border-border animate-slide-up">
-                  <div className="row-item px-4 bg-success/10">
-                    <div className="flex items-center gap-2">
-                      <Check className="w-4 h-4 text-success" />
-                      <span className="text-success font-medium">QR Parsed Successfully</span>
+                <div className="rounded-xl border border-border overflow-hidden animate-slide-up">
+                  {/* Success Header */}
+                  <div className="flex items-center gap-2 px-4 py-3 bg-success/10">
+                    <Check className="w-4 h-4 text-success" />
+                    <span className="text-success font-medium text-sm">QR Parsed Successfully</span>
+                  </div>
+
+                  {/* Bank Details */}
+                  <div className="p-4 space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground text-sm">Bank</span>
+                      <span className="font-medium">{scannedBank.bankName}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground text-sm">Account</span>
+                      <span className="font-mono text-sm">{scannedBank.accountNumber}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground text-sm">Name</span>
+                      <span className="font-medium">{scannedBank.beneficiaryName}</span>
                     </div>
                   </div>
-                  <div className="row-item px-4">
-                    <span className="text-muted-foreground">Bank</span>
-                    <span className="font-medium">{scannedBank.bankName}</span>
-                  </div>
-                  <div className="row-item px-4">
-                    <span className="text-muted-foreground">Account</span>
-                    <span className="font-mono">{scannedBank.accountNumber}</span>
-                  </div>
-                  <div className="row-item px-4">
-                    <span className="text-muted-foreground">Name</span>
-                    <span className="font-medium">{scannedBank.beneficiaryName}</span>
-                  </div>
+                </div>
+              )}
+
+              {/* Empty State */}
+              {!scannedBank && !parseError && (
+                <div className="text-center py-12 text-muted-foreground">
+                  <Building2 className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                  <p className="text-sm">Scan your bank's QR code to link it</p>
                 </div>
               )}
             </div>
@@ -296,9 +324,9 @@ const Settings = () => {
             <button
               onClick={handleAddBank}
               disabled={!scannedBank}
-              className="btn-primary mt-8"
+              className="btn-primary mt-6"
             >
-              Add Bank
+              Link Bank Account
             </button>
           </div>
         </div>
@@ -311,9 +339,14 @@ const Settings = () => {
     <div className="app-container">
       <div className="page-wrapper">
         {/* Header */}
-        <div className="flex justify-between items-center mb-8 animate-fade-in">
+        <div className="flex justify-between items-center mb-6 animate-fade-in">
           <h1 className="text-xl font-bold">Settings</h1>
-          <button onClick={() => navigate('/dashboard')} className="btn-ghost">Done</button>
+          <button
+            onClick={() => navigate('/dashboard')}
+            className="text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Done
+          </button>
         </div>
 
         {/* Profile */}
@@ -325,7 +358,7 @@ const Settings = () => {
         {/* Wallets */}
         <div className="mb-6 animate-slide-up stagger-1">
           <p className="section-title">Wallets</p>
-          <div className="border border-border">
+          <div className="rounded-xl border border-border overflow-hidden">
             {linkedWallets.map((wallet) => (
               <div key={wallet.id} className="row-item px-4">
                 <div className="flex items-center gap-3">
@@ -374,7 +407,7 @@ const Settings = () => {
         {/* Banks */}
         <div className="mb-6 animate-slide-up stagger-2">
           <p className="section-title">Banks</p>
-          <div className="border border-border">
+          <div className="rounded-xl border border-border overflow-hidden">
             {linkedBanks.length === 0 ? (
               <div className="py-8 text-center text-muted-foreground">
                 No banks linked
@@ -427,7 +460,7 @@ const Settings = () => {
         {/* KYC */}
         <div className="mb-6 animate-slide-up stagger-3">
           <p className="section-title">Identity</p>
-          <div className="border border-border p-4">
+          <div className="rounded-xl border border-border p-4">
             <div className="flex justify-between items-center">
               <div className="flex items-center gap-3">
                 <Shield className="w-5 h-5" />
@@ -450,7 +483,7 @@ const Settings = () => {
         {/* Actions */}
         <div className="mb-6 animate-slide-up">
           <p className="section-title">Actions</p>
-          <div className="border border-border">
+          <div className="rounded-xl border border-border overflow-hidden">
             <button className="w-full row-item px-4 hover:bg-secondary transition-colors">
               <div className="flex items-center gap-3">
                 <Key className="w-5 h-5" />
@@ -478,14 +511,14 @@ const Settings = () => {
         {/* Disconnect */}
         <button
           onClick={handleDisconnect}
-          className="w-full py-4 text-destructive text-center font-medium border border-destructive hover:bg-destructive hover:text-white transition-colors flex items-center justify-center gap-2"
+          className="w-full py-4 rounded-xl text-destructive text-center font-medium border border-destructive hover:bg-destructive hover:text-white transition-colors flex items-center justify-center gap-2"
         >
           <LogOut className="w-5 h-5" />
           Disconnect
         </button>
 
         <p className="text-center text-sm text-muted-foreground mt-6">
-          HiddenPay v1.0 · Sui Testnet
+          HiddenPay v1.0 · Sui Mainnet
         </p>
       </div>
     </div>
