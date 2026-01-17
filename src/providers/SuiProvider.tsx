@@ -22,7 +22,7 @@ export function SuiProvider({ children }: SuiProviderProps) {
     return (
         <QueryClientProvider client={queryClient}>
             <SuiClientProvider networks={networkConfig} defaultNetwork="testnet">
-                <WalletProvider autoConnect>
+                <WalletProvider autoConnect={true}>
                     {children}
                 </WalletProvider>
             </SuiClientProvider>
