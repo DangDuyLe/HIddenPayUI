@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useWallet } from '@/context/WalletContext';
-import { Wallet, Building2, Scan, Check, Trash2, Star, Shield, LogOut, Loader2, AlertTriangle, ChevronLeft } from 'lucide-react';
+import { Wallet, Building2, Scan, Check, Trash2, Star, Shield, LogOut, Loader2, AlertTriangle, ChevronLeft, Copy } from 'lucide-react';
 import QRScanner from '@/components/QRScanner';
 import { useDisconnectWallet } from '@mysten/dapp-kit';
 import * as gaian from '@/services/gaian';
@@ -35,6 +35,7 @@ const Settings = () => {
   const [newWalletName, setNewWalletName] = useState('');
   const [newWalletAddress, setNewWalletAddress] = useState('');
   const [scannedBank, setScannedBank] = useState<ScannedBankData | null>(null);
+  const [copiedWalletId, setCopiedWalletId] = useState<string | null>(null);
 
   // API parsing state
   const [isParsing, setIsParsing] = useState(false);
@@ -371,6 +372,23 @@ const Settings = () => {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(wallet.address);
+                      setCopiedWalletId(wallet.id);
+                      setTimeout(() => setCopiedWalletId(null), 2000);
+                    }}
+                    className="p-2 hover:bg-secondary rounded-full transition-colors"
+                    title="Copy Address"
+                  >
+                    {copiedWalletId === wallet.id ? (
+                      <Check className="w-4 h-4 text-success" />
+                    ) : (
+                      <Copy className="w-4 h-4 text-muted-foreground" />
+                    )}
+                  </button>
+                  <div className="h-4 w-px bg-border mx-1" />
+
                   {isDefault(wallet.id, 'wallet') ? (
                     <span className="tag-success">Default</span>
                   ) : (
