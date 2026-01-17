@@ -23,7 +23,7 @@ const getCurrentUrl = (): string => {
 const openSlushWallet = () => {
   const currentUrl = getCurrentUrl();
   // Try different deeplink formats
-  const deepLink = `suiwallet://dapp?url=${encodeURIComponent(currentUrl)}`;
+  const deepLink = `suiwallet://open?url=${encodeURIComponent(currentUrl)}`;
   window.location.href = deepLink;
 };
 
