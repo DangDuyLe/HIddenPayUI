@@ -13,6 +13,7 @@ import Send from "./pages/Send";
 import Receive from "./pages/Receive";
 import History from "./pages/History";
 import Settings from "./pages/Settings";
+import Leaderboard from "./pages/Leaderboard";
 import NotFound from "./pages/NotFound";
 
 const App = () => (
@@ -31,6 +32,7 @@ const App = () => (
             <Route path="/receive" element={<Receive />} />
             <Route path="/history" element={<History />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/leaderboard" element={<Leaderboard />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
           <MobileBottomNav />

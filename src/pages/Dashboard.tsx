@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { useWallet } from '@/context/WalletContext';
 import { useEffect, useState } from 'react';
-import { ArrowUpRight, ArrowDownLeft, Eye, EyeOff, Copy, Check, Users, TrendingUp, Award } from 'lucide-react';
+import { ArrowUpRight, ArrowDownLeft, Eye, EyeOff, Copy, Check, Users, TrendingUp, Award, Trophy } from 'lucide-react';
 
 const Dashboard = () => {
     const navigate = useNavigate();
@@ -134,7 +134,16 @@ const Dashboard = () => {
 
                 {/* Referral Stats Card */}
                 <div className="mt-6 animate-slide-up stagger-2">
-                    <h3 className="section-title mb-3">Affiliate Performance</h3>
+                    <div className="flex justify-between items-center mb-3">
+                        <h3 className="section-title mb-0">Affiliate Performance</h3>
+                        <button
+                            onClick={() => navigate('/leaderboard')}
+                            className="text-sm font-medium text-primary hover:text-primary/80 transition-colors flex items-center gap-1"
+                        >
+                            <Trophy className="w-3.5 h-3.5" />
+                            Leaderboard
+                        </button>
+                    </div>
                     <div className="card-modern">
                         <div className="grid grid-cols-3 gap-4 text-center">
                             {/* Commission */}
@@ -146,12 +155,15 @@ const Dashboard = () => {
                                 <p className="text-xs text-muted-foreground">Earned</p>
                             </div>
                             {/* Volume */}
-                            <div className="py-2 border-l border-r border-border">
-                                <div className="flex items-center justify-center gap-1.5 mb-1">
-                                    <TrendingUp className="w-4 h-4 text-success" />
+                            <div className="py-2 border-l border-r border-border relative group cursor-pointer" onClick={() => navigate('/leaderboard')}>
+                                <div className="absolute inset-x-2 -top-2 -bottom-2 bg-secondary/50 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity" />
+                                <div className="relative flex items-center justify-center gap-1.5 mb-1">
+                                    <Trophy className="w-4 h-4 text-amber-500" />
                                 </div>
-                                <p className="text-lg font-bold">{formatVolume(referralStats.f0Volume)}</p>
-                                <p className="text-xs text-muted-foreground">Volume</p>
+                                <div className="relative">
+                                    <p className="text-lg font-bold">{formatVolume(referralStats.f0Volume)}</p>
+                                    <p className="text-xs text-muted-foreground">Volume</p>
+                                </div>
                             </div>
                             {/* Network */}
                             <div className="py-2">

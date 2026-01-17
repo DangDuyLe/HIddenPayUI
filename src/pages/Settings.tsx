@@ -490,7 +490,7 @@ const Settings = () => {
         </button>
 
         <p className="text-center text-sm text-muted-foreground mt-6">
-          HiddenWallet v1.0 · Sui Mainnet
+          HiddenWallet v1.0 · Sui Testnet
         </p>
       </div>
     </div>
