@@ -3,9 +3,9 @@ import { useAuth } from '@/context/AuthContext';
 import { useSignAndExecuteTransaction, useSuiClient, useCurrentAccount } from '@mysten/dapp-kit';
 import { Transaction } from '@mysten/sui/transactions';
 
-// Aftermath USDC Token on Sui Testnet
-const USDC_COIN_TYPE = "0xcdd397f2cffb7f5d439f56fc01afe5585c5f06e3bcd2ee3a21753c566de313d9::usdc::USDC";
-const USDC_DECIMALS = 9; // This USDC has 9 decimals
+// Official Native USDC on Sui Mainnet
+const USDC_COIN_TYPE = "0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC";
+const USDC_DECIMALS = 6; // Mainnet USDC has 6 decimals
 
 interface TransactionRecord {
   id: string;
@@ -15,6 +15,13 @@ interface TransactionRecord {
   amount: number;
   timestamp: Date;
   token: 'SUI' | 'USDC';
+  digest?: string; // Transaction hash
+}
+
+interface ReferralStats {
+  totalCommission: number;
+  f0Volume: number;
+  f0Count: number;
 }
 
 interface LinkedBank {
@@ -30,7 +37,7 @@ interface LinkedWallet {
   name: string;
 }
 
-interface PayPathUser {
+interface HiddenWalletUser {
   username: string;
   avatar?: string;
   walletAddress?: string;
@@ -41,7 +48,7 @@ type DefaultAccountType = 'wallet' | 'bank';
 type KYCStatus = 'unverified' | 'pending' | 'verified';
 
 // Mock registered users database
-const registeredUsers: Record<string, PayPathUser> = {
+const registeredUsers: Record<string, HiddenWalletUser> = {
   'duy3000': {
     username: 'duy3000',
     avatar: 'D',
@@ -81,12 +88,14 @@ interface WalletState {
   contacts: string[];
   kycStatus: KYCStatus;
   isLoadingBalance: boolean;
+  rewardPoints: number;
+  referralStats: ReferralStats;
 }
 
 interface WalletContextType extends WalletState {
   connectWallet: (address?: string) => void;
   setUsername: (username: string) => void;
-  sendUsdc: (toAddress: string, amount: number) => Promise<boolean>;
+  sendUsdc: (toAddress: string, amount: number) => Promise<{ success: boolean; digest?: string }>;
   disconnect: () => void;
   addBankAccount: (bank: Omit<LinkedBank, 'id'>) => void;
   removeBankAccount: (id: string) => void;
@@ -94,8 +103,8 @@ interface WalletContextType extends WalletState {
   removeLinkedWallet: (id: string) => void;
   setDefaultAccount: (id: string, type: DefaultAccountType) => void;
   addContact: (username: string) => void;
-  lookupBankAccount: (accountNumber: string) => PayPathUser | null;
-  lookupUsername: (username: string) => PayPathUser | null;
+  lookupBankAccount: (accountNumber: string) => HiddenWalletUser | null;
+  lookupUsername: (username: string) => HiddenWalletUser | null;
   getDefaultAccount: () => { id: string; type: DefaultAccountType; name: string } | null;
   refreshBalance: () => Promise<void>;
   isValidWalletAddress: (address: string) => boolean;
@@ -104,9 +113,11 @@ interface WalletContextType extends WalletState {
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
 const mockTransactions: TransactionRecord[] = [
-  { id: '1', type: 'sent', to: '@alice', amount: 10, timestamp: new Date(Date.now() - 3600000), token: 'USDC' },
-  { id: '2', type: 'received', from: '@bob', amount: 25.5, timestamp: new Date(Date.now() - 7200000), token: 'USDC' },
-  { id: '3', type: 'sent', to: '@charlie', amount: 5, timestamp: new Date(Date.now() - 86400000), token: 'USDC' },
+  { id: '1', type: 'sent', to: '@alice', amount: 10, timestamp: new Date(Date.now() - 3600000), token: 'USDC', digest: '5Am7kZ...9zXq' },
+  { id: '2', type: 'received', from: '@bob', amount: 25.5, timestamp: new Date(Date.now() - 7200000), token: 'USDC', digest: '8Bc3mL...4wYn' },
+  { id: '3', type: 'sent', to: '@charlie', amount: 5, timestamp: new Date(Date.now() - 86400000), token: 'USDC', digest: '2Dp9nR...7vTm' },
+  { id: '4', type: 'received', from: '@dave', amount: 100, timestamp: new Date(Date.now() - 172800000), token: 'USDC', digest: '6Eq5oS...1uWp' },
+  { id: '5', type: 'sent', to: '@eve', amount: 15.75, timestamp: new Date(Date.now() - 259200000), token: 'USDC', digest: '9Fr2pT...3xKo' },
 ];
 
 // Exchange rate: 1 USDC = 25,500 VND
@@ -125,7 +136,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     suiBalance: 0,
     usdcBalance: 0,
     balanceVnd: 0,
-    transactions: mockTransactions,
+    transactions: [], // No mock data, only real blockchain transactions
     linkedBanks: [],
     linkedWallets: [],
     defaultAccountId: null,
@@ -133,6 +144,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     contacts: ['@alice', '@bob'],
     kycStatus: 'unverified',
     isLoadingBalance: false,
+    rewardPoints: 1250,
+    referralStats: { totalCommission: 15.5, f0Volume: 50000, f0Count: 12 },
   });
 
   // Fetch REAL balances and transactions from blockchain
@@ -326,21 +339,20 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     setState(prev => ({ ...prev, username }));
   };
 
-  // Send USDC Token
-  const sendUsdc = async (toAddress: string, amount: number): Promise<boolean> => {
+  // Send USDC Token - Returns the REAL transaction digest
+  const sendUsdc = async (toAddress: string, amount: number): Promise<{ success: boolean; digest?: string }> => {
     if (!currentAccount?.address) {
       console.error('No wallet connected');
-      return false;
+      return { success: false };
     }
 
     if (!isValidWalletAddress(toAddress)) {
       console.error('Invalid recipient address');
-      return false;
+      return { success: false };
     }
 
     try {
       // Convert amount to smallest unit using USDC_DECIMALS
-      // User input: 10 USDC -> Raw amount: 10 * 10^9
       const amountInSmallestUnit = BigInt(Math.floor(amount * Math.pow(10, USDC_DECIMALS)));
 
       // Get user's USDC coins
@@ -351,7 +363,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
       if (coins.data.length === 0) {
         console.error('No USDC coins found');
-        return false;
+        return { success: false };
       }
 
       const tx = new Transaction();
@@ -367,33 +379,47 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       // Transfer to recipient
       tx.transferObjects([coinToSend], tx.pure.address(toAddress));
 
-      // Sign and execute
-      await signAndExecute({
-        transaction: tx,
+      // Sign and execute with Promise to capture REAL digest
+      return new Promise((resolve) => {
+        signAndExecute(
+          {
+            transaction: tx,
+          },
+          {
+            onSuccess: (result) => {
+
+
+              // Add transaction record with REAL digest
+              const newTransaction: TransactionRecord = {
+                id: result.digest, // Use REAL digest as ID
+                type: 'sent',
+                to: toAddress.slice(0, 8) + '...' + toAddress.slice(-4),
+                amount,
+                timestamp: new Date(),
+                token: 'USDC',
+                digest: result.digest, // Store REAL digest
+              };
+
+              setState(prev => ({
+                ...prev,
+                transactions: [newTransaction, ...prev.transactions],
+              }));
+
+              // Refresh balance after sending
+              setTimeout(refreshBalance, 2000);
+
+              resolve({ success: true, digest: result.digest });
+            },
+            onError: (error) => {
+              console.error('Transaction Failed:', error);
+              resolve({ success: false });
+            },
+          }
+        );
       });
-
-      // Add transaction record
-      const newTransaction: TransactionRecord = {
-        id: Date.now().toString(),
-        type: 'sent',
-        to: toAddress.slice(0, 8) + '...' + toAddress.slice(-4),
-        amount,
-        timestamp: new Date(),
-        token: 'USDC',
-      };
-
-      setState(prev => ({
-        ...prev,
-        transactions: [newTransaction, ...prev.transactions],
-      }));
-
-      // Refresh balance after sending
-      setTimeout(refreshBalance, 2000);
-
-      return true;
     } catch (error) {
       console.error('Failed to send USDC:', error);
-      return false;
+      return { success: false };
     }
   };
 
@@ -413,6 +439,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       contacts: ['@alice', '@bob'],
       kycStatus: 'unverified',
       isLoadingBalance: false,
+      rewardPoints: 1250,
+      referralStats: { totalCommission: 15.5, f0Volume: 50000, f0Count: 12 },
     });
   };
 
@@ -501,7 +529,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     }));
   };
 
-  const lookupBankAccount = (accountNumber: string): PayPathUser | null => {
+  const lookupBankAccount = (accountNumber: string): HiddenWalletUser | null => {
     for (const user of Object.values(registeredUsers)) {
       if (user.linkedBank?.accountNumber === accountNumber) {
         return user;
@@ -510,7 +538,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     return null;
   };
 
-  const lookupUsername = (username: string): PayPathUser | null => {
+  const lookupUsername = (username: string): HiddenWalletUser | null => {
     const cleanUsername = username.replace('@', '').toLowerCase();
     return registeredUsers[cleanUsername] || null;
   };

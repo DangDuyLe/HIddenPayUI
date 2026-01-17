@@ -1,91 +1,115 @@
 import { useNavigate } from 'react-router-dom';
 import { useWallet } from '@/context/WalletContext';
 import { useState } from 'react';
-import { Copy, Share2, Check, Settings } from 'lucide-react';
+import { Copy, Share2, Check, X } from 'lucide-react';
 
 const Receive = () => {
   const navigate = useNavigate();
-  const { username, isConnected } = useWallet();
-  const [copied, setCopied] = useState(false);
+  const { username, walletAddress, isConnected } = useWallet();
+  const [copiedUsername, setCopiedUsername] = useState(false);
+  const [copiedAddress, setCopiedAddress] = useState(false);
 
   if (!username) {
     navigate('/onboarding', { replace: true });
     return null;
   }
 
-  const handleCopy = () => {
+  const handleCopyUsername = () => {
     navigator.clipboard.writeText(`@${username}`);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setCopiedUsername(true);
+    setTimeout(() => setCopiedUsername(false), 2000);
+  };
+
+  const handleCopyAddress = () => {
+    if (walletAddress) {
+      navigator.clipboard.writeText(walletAddress);
+      setCopiedAddress(true);
+      setTimeout(() => setCopiedAddress(false), 2000);
+    }
   };
 
   const handleShare = async () => {
     if (navigator.share) {
       try {
         await navigator.share({
-          title: 'PayPath',
-          text: `Send me money: @${username}`,
-          url: `https://paypath.app/@${username}`,
+          title: 'Receive Money on HiddenWallet',
+          text: `Send money to @${username} on HiddenWallet!`,
+          url: window.location.href,
         });
       } catch (err) {
-        handleCopy();
+        handleCopyUsername();
       }
     } else {
-      handleCopy();
+      handleCopyUsername();
     }
   };
+
+  const shortAddress = walletAddress
+    ? `${walletAddress.slice(0, 8)}...${walletAddress.slice(-6)}`
+    : '';
 
   return (
     <div className="app-container">
       <div className="page-wrapper">
         {/* Header */}
-        <div className="flex justify-between items-center mb-8 animate-fade-in">
+        <div className="flex justify-between items-center mb-6 animate-fade-in">
           <h1 className="text-xl font-bold">Receive</h1>
-          <button onClick={() => navigate('/dashboard')} className="btn-ghost">Done</button>
+          <button onClick={() => navigate('/dashboard')} className="p-2 text-muted-foreground hover:text-foreground transition-colors">
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
-        {/* QR Code Area */}
-        <div className="flex-1 flex flex-col items-center justify-center animate-slide-up">
-          {/* QR Placeholder */}
-          <div className="w-64 h-64 border-2 border-foreground flex items-center justify-center mb-8">
-            <div className="grid grid-cols-8 gap-1 p-4 w-full h-full">
-              {Array.from({ length: 64 }).map((_, i) => {
-                const hash = (username.charCodeAt(i % username.length) * (i + 1)) % 3;
-                return (
-                  <div
-                    key={i}
-                    className={`w-full h-full ${hash === 0 ? 'bg-foreground' : 'bg-transparent'}`}
-                  />
-                );
-              })}
+        {/* QR Code */}
+        <div className="flex-1 flex flex-col items-center animate-slide-up">
+          <div className="card-modern p-6 mb-6">
+            {/* QR Placeholder */}
+            <div className="w-52 h-52 bg-secondary rounded-2xl flex items-center justify-center mb-4 mx-auto">
+              <div className="grid grid-cols-8 gap-0.5 p-3 w-full h-full">
+                {Array.from({ length: 64 }).map((_, i) => {
+                  const hash = (username.charCodeAt(i % username.length) * (i + 1)) % 3;
+                  return (
+                    <div
+                      key={i}
+                      className={`w-full h-full rounded-sm ${hash === 0 ? 'bg-foreground' : 'bg-transparent'}`}
+                    />
+                  );
+                })}
+              </div>
             </div>
+
+            {/* Username */}
+            <p className="text-2xl font-bold text-center">@{username}</p>
+            <p className="text-sm text-muted-foreground text-center mt-1">Scan to pay me</p>
           </div>
 
-          {/* Username */}
-          <p className="display-medium text-center mb-2">@{username}</p>
-          <p className="text-muted-foreground">Your PayPath ID</p>
+          {/* Wallet Address */}
+          <button
+            onClick={handleCopyAddress}
+            className="card-modern w-full flex items-center justify-between mb-4"
+          >
+            <div>
+              <p className="text-xs text-muted-foreground mb-0.5">Wallet Address</p>
+              <p className="font-mono text-sm">{shortAddress}</p>
+            </div>
+            {copiedAddress ? (
+              <Check className="w-4 h-4 text-success" />
+            ) : (
+              <Copy className="w-4 h-4 text-muted-foreground" />
+            )}
+          </button>
 
           {/* Actions */}
-          <div className="flex gap-4 mt-8 w-full max-w-xs">
-            <button onClick={handleCopy} className="btn-secondary flex-1 flex items-center justify-center gap-2">
-              {copied ? <Check className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
-              {copied ? 'Copied' : 'Copy'}
+          <div className="flex gap-3 w-full">
+            <button onClick={handleCopyUsername} className="btn-secondary flex-1 flex items-center justify-center gap-2">
+              {copiedUsername ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+              {copiedUsername ? 'Copied' : 'Copy'}
             </button>
             <button onClick={handleShare} className="btn-primary flex-1 flex items-center justify-center gap-2">
-              <Share2 className="w-5 h-5" />
+              <Share2 className="w-4 h-4" />
               Share
             </button>
           </div>
         </div>
-
-        {/* Footer note */}
-        <button
-          onClick={() => navigate('/settings')}
-          className="text-center text-sm text-muted-foreground mt-8 animate-fade-in flex items-center justify-center gap-2 hover:text-foreground transition-colors"
-        >
-          <Settings className="w-4 h-4" />
-          Manage receiving preferences
-        </button>
       </div>
     </div>
   );

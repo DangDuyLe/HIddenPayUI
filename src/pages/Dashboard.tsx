@@ -1,31 +1,46 @@
 import { useNavigate } from 'react-router-dom';
 import { useWallet } from '@/context/WalletContext';
-import { useEffect } from 'react';
-import { Send, QrCode, ArrowDownLeft, ArrowUpRight, Settings, RefreshCw } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { ArrowUpRight, ArrowDownLeft, Eye, EyeOff, Copy, Check, Users, TrendingUp, Award, Settings } from 'lucide-react';
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  
+  // MERGE: Lấy tất cả dữ liệu từ cả 2 nhánh
   const {
     username,
     suiBalance,
     usdcBalance,
-    balanceVnd,
+    // balanceVnd, // Có thể giữ lại nếu sau này cần hiển thị VND
     transactions,
     isConnected,
     isLoadingBalance,
     refreshBalance,
+    rewardPoints,   // Của Main (Quan trọng)
+    referralStats,  // Của Main (Quan trọng)
   } = useWallet();
 
-  useEffect(() => {
-    if (!username) {
-      navigate('/onboarding', { replace: true });
-    }
-  }, [username, navigate]);
+  // STATE: Giữ state UI của nhánh Main
+  const [showBalance, setShowBalance] = useState(true);
+  const [copiedDigest, setCopiedDigest] = useState<string | null>(null);
 
-  if (!username) {
+  // EFFECT: Logic kiểm tra đăng nhập
+  useEffect(() => {
+    // Ưu tiên logic của Main: Nếu chưa connect hoặc chưa có user -> đá về Home/Login
+    if (!isConnected && !username) {
+      navigate('/');
+    }
+    // Logic của Zklogin: Nếu đã connect mà chưa có username -> đá về Onboarding
+    else if (isConnected && !username) {
+        navigate('/onboarding', { replace: true });
+    }
+  }, [isConnected, username, navigate]);
+
+  if (!isConnected && !username) {
     return null;
   }
 
+  // HELPER FUNCTIONS (Của Main)
   const formatTime = (date: Date) => {
     const now = new Date();
     const diff = now.getTime() - date.getTime();
@@ -35,110 +50,62 @@ const Dashboard = () => {
     return `${Math.floor(hours / 24)}d`;
   };
 
-  const formatVnd = (amount: number) => {
-    return new Intl.NumberFormat('vi-VN').format(amount);
+  const formatVolume = (volume: number) => {
+    if (volume >= 1000000) return `$${(volume / 1000000).toFixed(1)}M`;
+    if (volume >= 1000) return `$${(volume / 1000).toFixed(0)}k`;
+    return `$${volume}`;
   };
 
+  const copyDigest = async (digest: string) => {
+    try {
+      await navigator.clipboard.writeText(digest);
+      setCopiedDigest(digest);
+      setTimeout(() => setCopiedDigest(null), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
+
+  // CALCULATIONS
+  const balanceWhole = Math.floor(usdcBalance);
+  const balanceDecimal = (usdcBalance - balanceWhole).toFixed(2).slice(1); // .00
+  const recentTransactions = transactions.slice(0, 3);
+
+  // RENDER: Sử dụng UI của nhánh MAIN (đầy đủ features nhất)
   return (
     <div className="app-container">
       <div className="page-wrapper">
-        {/* Header */}
-        <div className="flex justify-between items-center animate-fade-in">
-          <div>
-            <p className="label-caps mb-1">Welcome back</p>
-            <h2 className="text-xl font-bold">@{username}</h2>
-          </div>
+        {/* Header - User Pill & Reward Badge */}
+        <div className="flex items-center justify-between animate-fade-in pt-2">
           <button
             onClick={() => navigate('/settings')}
-            className="p-3 border border-border hover:bg-secondary transition-colors"
+            className="user-pill"
           >
-            <Settings className="w-5 h-5" />
+            <div className="user-avatar">
+              <span className="text-xs font-semibold">{username ? username[0].toUpperCase() : '?'}</span>
+            </div>
+            <span className="font-medium text-sm">{username}</span>
           </button>
-        </div>
 
-        {/* Balance */}
-        <div className="py-12 animate-slide-up">
-          <div className="flex items-center gap-2 mb-2">
-            <p className="label-caps">USDC Balance</p>
-            <button
-              onClick={refreshBalance}
-              disabled={isLoadingBalance}
-              className="p-1 hover:bg-secondary rounded transition-colors disabled:opacity-50"
-            >
-              <RefreshCw className={`w-4 h-4 text-muted-foreground ${isLoadingBalance ? 'animate-spin' : ''}`} />
-            </button>
-          </div>
-
-          <p className="display-large">
-            {isLoadingBalance ? '...' : usdcBalance.toFixed(2)}
-            <span className="text-3xl text-muted-foreground ml-2">USDC</span>
-          </p>
-          <p className="text-muted-foreground text-lg mt-2">≈ {formatVnd(balanceVnd)} ₫</p>
-
-          {/* SUI Balance for gas */}
-          <p className="text-sm text-muted-foreground mt-4">
-            Gas: {suiBalance.toFixed(4)} SUI
-          </p>
-        </div>
-
-        {/* Actions */}
-        <div className="flex gap-4 animate-slide-up stagger-1">
-          <button
-            onClick={() => navigate('/send')}
-            className="btn-primary flex-1 flex items-center justify-center gap-2"
-          >
-            <Send className="w-5 h-5" />
-            Send
-          </button>
-          <button
-            onClick={() => navigate('/receive')}
-            className="btn-secondary flex-1 flex items-center justify-center gap-2"
-          >
-            <QrCode className="w-5 h-5" />
-            Receive
-          </button>
-        </div>
-
-        {/* Divider */}
-        <div className="divider" />
-
-        {/* Activity */}
-        <div className="flex-1 animate-slide-up stagger-2">
-          <p className="section-title">Recent Activity</p>
-
-          <div className="border border-border">
-            {transactions.slice(0, 5).map((tx) => (
-              <div key={tx.id} className="row-item px-4">
-                <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 flex items-center justify-center ${tx.type === 'sent' ? 'bg-secondary' : 'bg-success/10'
-                    }`}>
-                    {tx.type === 'sent'
-                      ? <ArrowUpRight className="w-5 h-5" />
-                      : <ArrowDownLeft className="w-5 h-5 text-success" />
-                    }
-                  </div>
-                  <div>
-                    <p className="font-medium">
-                      {tx.type === 'sent' ? `To ${tx.to}` : `From ${tx.from}`}
-                    </p>
-                    <p className="text-sm text-muted-foreground">{formatTime(tx.timestamp)}</p>
-                  </div>
-                </div>
-                <p className={`font-semibold ${tx.type === 'sent' ? 'text-foreground' : 'text-success'}`}>
-                  {tx.type === 'sent' ? '−' : '+'}{tx.amount} USDC
-                </p>
-              </div>
-            ))}
-            {transactions.length === 0 && (
-              <div className="py-12 text-center text-muted-foreground">
-                No transactions yet
-              </div>
-            )}
+          {/* Reward Points Badge - Subtle */}
+          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-secondary rounded-full transition-colors hover:bg-secondary/80 cursor-default">
+            <span className="text-sm">🏆</span>
+            <span className="text-sm font-medium">{rewardPoints ? rewardPoints.toLocaleString() : 0} pts</span>
           </div>
         </div>
-      </div>
-    </div>
-  );
-};
 
-export default Dashboard;
+        {/* Balance Section */}
+        <div className="py-8 text-center animate-slide-up">
+          {/* USDC Balance - Large */}
+          <div className="flex items-baseline justify-center">
+            {showBalance ? (
+              <>
+                <span className="balance-display">
+                  ${isLoadingBalance ? '...' : balanceWhole}
+                </span>
+                <span className="balance-decimal">
+                  {isLoadingBalance ? '' : balanceDecimal}
+                </span>
+              </>
+            ) : (
+              <span className="balance-display">$••••
