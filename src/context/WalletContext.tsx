@@ -2,9 +2,9 @@ import React, { createContext, useContext, useState, ReactNode, useEffect, useCa
 import { useSignAndExecuteTransaction, useSuiClient, useCurrentAccount } from '@mysten/dapp-kit';
 import { Transaction } from '@mysten/sui/transactions';
 
-// Aftermath USDC Token on Sui Testnet
-const USDC_COIN_TYPE = "0xcdd397f2cffb7f5d439f56fc01afe5585c5f06e3bcd2ee3a21753c566de313d9::usdc::USDC";
-const USDC_DECIMALS = 9; // This USDC has 9 decimals
+// Official Native USDC on Sui Mainnet
+const USDC_COIN_TYPE = "0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC";
+const USDC_DECIMALS = 6; // Mainnet USDC has 6 decimals
 
 interface TransactionRecord {
   id: string;
@@ -94,7 +94,7 @@ interface WalletState {
 interface WalletContextType extends WalletState {
   connectWallet: (address?: string) => void;
   setUsername: (username: string) => void;
-  sendUsdc: (toAddress: string, amount: number) => Promise<boolean>;
+  sendUsdc: (toAddress: string, amount: number) => Promise<{ success: boolean; digest?: string }>;
   disconnect: () => void;
   addBankAccount: (bank: Omit<LinkedBank, 'id'>) => void;
   removeBankAccount: (id: string) => void;
@@ -310,21 +310,20 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     setState(prev => ({ ...prev, username }));
   };
 
-  // Send USDC Token
-  const sendUsdc = async (toAddress: string, amount: number): Promise<boolean> => {
+  // Send USDC Token - Returns the REAL transaction digest
+  const sendUsdc = async (toAddress: string, amount: number): Promise<{ success: boolean; digest?: string }> => {
     if (!currentAccount?.address) {
       console.error('No wallet connected');
-      return false;
+      return { success: false };
     }
 
     if (!isValidWalletAddress(toAddress)) {
       console.error('Invalid recipient address');
-      return false;
+      return { success: false };
     }
 
     try {
       // Convert amount to smallest unit using USDC_DECIMALS
-      // User input: 10 USDC -> Raw amount: 10 * 10^9
       const amountInSmallestUnit = BigInt(Math.floor(amount * Math.pow(10, USDC_DECIMALS)));
 
       // Get user's USDC coins
@@ -335,7 +334,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
       if (coins.data.length === 0) {
         console.error('No USDC coins found');
-        return false;
+        return { success: false };
       }
 
       const tx = new Transaction();
@@ -351,33 +350,48 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       // Transfer to recipient
       tx.transferObjects([coinToSend], tx.pure.address(toAddress));
 
-      // Sign and execute
-      await signAndExecute({
-        transaction: tx,
+      // Sign and execute with Promise to capture REAL digest
+      return new Promise((resolve) => {
+        signAndExecute(
+          {
+            transaction: tx,
+          },
+          {
+            onSuccess: (result) => {
+              console.log('Transaction Successful:', result);
+              console.log('REAL DIGEST:', result.digest);
+
+              // Add transaction record with REAL digest
+              const newTransaction: TransactionRecord = {
+                id: result.digest, // Use REAL digest as ID
+                type: 'sent',
+                to: toAddress.slice(0, 8) + '...' + toAddress.slice(-4),
+                amount,
+                timestamp: new Date(),
+                token: 'USDC',
+                digest: result.digest, // Store REAL digest
+              };
+
+              setState(prev => ({
+                ...prev,
+                transactions: [newTransaction, ...prev.transactions],
+              }));
+
+              // Refresh balance after sending
+              setTimeout(refreshBalance, 2000);
+
+              resolve({ success: true, digest: result.digest });
+            },
+            onError: (error) => {
+              console.error('Transaction Failed:', error);
+              resolve({ success: false });
+            },
+          }
+        );
       });
-
-      // Add transaction record
-      const newTransaction: TransactionRecord = {
-        id: Date.now().toString(),
-        type: 'sent',
-        to: toAddress.slice(0, 8) + '...' + toAddress.slice(-4),
-        amount,
-        timestamp: new Date(),
-        token: 'USDC',
-      };
-
-      setState(prev => ({
-        ...prev,
-        transactions: [newTransaction, ...prev.transactions],
-      }));
-
-      // Refresh balance after sending
-      setTimeout(refreshBalance, 2000);
-
-      return true;
     } catch (error) {
       console.error('Failed to send USDC:', error);
-      return false;
+      return { success: false };
     }
   };
 

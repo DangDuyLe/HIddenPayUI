@@ -105,7 +105,14 @@ const History = () => {
                                                     </p>
                                                     <div className="flex items-center gap-1">
                                                         <span className="text-xs text-muted-foreground">•</span>
-                                                        <span className="text-xs text-muted-foreground font-mono">{truncatedHash}</span>
+                                                        <a
+                                                            href={`https://suiscan.xyz/mainnet/tx/${txHash}`}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="text-xs text-muted-foreground font-mono hover:text-foreground hover:underline transition-colors"
+                                                        >
+                                                            {truncatedHash}
+                                                        </a>
                                                         <button
                                                             onClick={() => copyDigest(txHash)}
                                                             className="p-0.5 hover:bg-secondary rounded transition-colors"
@@ -124,7 +131,7 @@ const History = () => {
                                             </div>
                                         </div>
                                         <p className={`font-semibold flex-shrink-0 ${tx.type === 'sent' ? 'text-foreground' : 'text-success'}`}>
-                                            {tx.type === 'sent' ? '−' : '+'}{tx.amount.toFixed(2)} USDC
+                                            {tx.type === 'sent' ? '−' : '+'}{tx.amount.toFixed(3)} USDC
                                         </p>
                                     </div>
                                 );

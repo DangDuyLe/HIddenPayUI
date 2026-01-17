@@ -250,9 +250,10 @@ const Send = () => {
 
     try {
       const toAddress = recipientAddress || '0x0000000000000000000000000000000000000000000000000000000000000000';
-      const success = await sendUsdc(toAddress, parseFloat(amount));
+      const result = await sendUsdc(toAddress, parseFloat(amount));
 
-      if (success) {
+      if (result.success) {
+        console.log('TRANSACTION COMPLETE - REAL DIGEST:', result.digest);
         setStep('success');
       } else {
         setError('Transaction failed');
@@ -601,7 +602,7 @@ const Send = () => {
                   }
                   setError('');
                 }}
-                step="0.01"
+                step="0.001"
                 min="0"
                 placeholder="0.00"
                 className="input-modern text-xl font-semibold"
