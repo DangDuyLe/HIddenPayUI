@@ -59,7 +59,7 @@ const Dashboard = () => {
     const balanceWhole = Math.floor(usdcBalance);
     const balanceDecimal = (usdcBalance - balanceWhole).toFixed(6).slice(1); // .000000
 
-    const recentTransactions = transactions.slice(0, 5);
+    const recentTransactions = transactions.slice(0, 3);
 
     return (
         <div className="app-container">

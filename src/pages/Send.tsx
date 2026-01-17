@@ -132,10 +132,20 @@ const Send = () => {
 
   const handleQRScanned = async (qrString: string) => {
     setShowScanner(false);
-    setIsParsing(true);
-    setError('');
-    setScanResult('none');
+
+    // Clear all previous data immediately before loading new QR
+    setRecipient('');
+    setRecipientValid(null);
+    setRecipientAddress(null);
+    setRecipientType('none');
+    setRecipientDisplayName(null);
     setExternalBank(null);
+    setScanResult('none');
+    setError('');
+    setAmount('');
+
+    // Now start parsing
+    setIsParsing(true);
 
     try {
       if (gaian.isPayPathQr(qrString)) {
@@ -462,12 +472,17 @@ const Send = () => {
             {/* Scan QR Button */}
             <button
               onClick={() => setShowScanner(true)}
+              disabled={isParsing}
               className="w-full card-modern flex items-center justify-center gap-3 py-4"
             >
               <div className="icon-circle-primary">
-                <Scan className="w-4 h-4" />
+                {isParsing ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Scan className="w-4 h-4" />
+                )}
               </div>
-              <span className="font-semibold">Scan to Pay</span>
+              <span className="font-semibold">{isParsing ? 'Processing QR...' : 'Scan to Pay'}</span>
             </button>
 
             <div className="flex items-center gap-3 text-muted-foreground text-sm">
