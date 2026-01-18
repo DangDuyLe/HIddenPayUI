@@ -75,7 +75,22 @@ export const updateProfile = (dto: { email?: string; firstName?: string; lastNam
 
 export const changeUsername = (newUsername: string) => api.patch('/users/profile/username', { newUsername });
 
-export const lookupUser = (username: string) => api.get(`/users/lookup?username=${username}`);
+// User lookup for transfers
+export type LookupUserDefaultWallet =
+  | { id: string; type: 'onchain'; address: string; chain: string }
+  | { id: string; type: 'offchain'; bankName: string; accountNumber: string; accountName: string; qrString: string };
+
+export type LookupUserResponseDto = {
+  userId: string;
+  username: string;
+  walletAddress: string;
+  kycStatus: string;
+  canReceiveTransfer: boolean;
+  defaultWallet: LookupUserDefaultWallet | null;
+};
+
+export const lookupUser = (username: string) =>
+  api.get<LookupUserResponseDto>(`/users/lookup?username=${username}`);
 
 export type CheckUsernameResponseDto = {
   available: boolean;
@@ -147,5 +162,63 @@ export type KycStatusResponseDto = {
 export const getKycLink = (dto: { walletAddress: string }) => api.post<KycLinkResponseDto>('/kyc/get-link', dto);
 export const getKycStatus = (walletAddress: string) =>
   api.get<KycStatusResponseDto>('/kyc/status', { params: { walletAddress } });
-export default api;
 
+// ============================================
+// PAYMENT ORDER API (Bank Transfers)
+// ============================================
+
+export type CreatePaymentOrderDto = {
+  qrString: string;
+  usdcAmount: number;
+  payerWalletAddress: string;
+  fiatCurrency?: string;
+  country?: string;
+  clientRequestId?: string;
+};
+
+export type PaymentInstructionDto = {
+  toAddress: string;
+  coinType: string;
+  totalCrypto: string;
+  totalCryptoRaw: string;
+  totalPayout: number;
+};
+
+export type CreatePaymentOrderResponseDto = {
+  id: string;
+  status: string;
+  exchangeInfo: {
+    cryptoAmount: number;
+    fiatAmount: number;
+    fiatCurrency: string;
+    cryptoCurrency: string;
+    exchangeRate: number;
+    feeAmount: number;
+  };
+  hiddenWallet?: {
+    feePercent: string;
+    feeRate: number;
+    feeAmount: number;
+    amountBeforeFee: number;
+    amountWithFee: number;
+  };
+  paymentInstruction: PaymentInstructionDto;
+  payout: {
+    username?: string;
+    fiatCurrency: string;
+  };
+};
+
+export const createPaymentOrder = (dto: CreatePaymentOrderDto) =>
+  api.post<CreatePaymentOrderResponseDto>('/payments/orders', dto);
+
+export const confirmPaymentOrder = (orderId: string, userPaymentTxDigest: string) =>
+  api.post(`/payments/orders/${orderId}/confirm-user-payment`, { userPaymentTxDigest });
+
+export const getPaymentOrder = (orderId: string) =>
+  api.get(`/payments/orders/${orderId}`);
+
+export const syncPaymentOrder = (orderId: string) =>
+  api.post(`/payments/orders/${orderId}/sync`);
+
+export default api;

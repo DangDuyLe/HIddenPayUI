@@ -28,7 +28,7 @@ interface ScannedBankData {
 }
 
 type ApiWallet = {
-  id: string;
+  walletId: string;
   address: string;
   label?: string | null;
 };
@@ -74,11 +74,11 @@ const Settings = () => {
   const [showScanner, setShowScanner] = useState(false);
   const [newWalletName, setNewWalletName] = useState('');
   const [newWalletAddress, setNewWalletAddress] = useState('');
-const [scannedBankQr, setScannedBankQr] = useState<string | null>(null);
+  const [scannedBankQr, setScannedBankQr] = useState<string | null>(null);
   const [scannedBank, setScannedBank] = useState<ScannedBankData | null>(null);
   const [copiedWalletId, setCopiedWalletId] = useState<string | null>(null);
 
-const refreshSettings = async () => {
+  const refreshSettings = async () => {
     setSettingsError('');
     setIsLoadingSettings(true);
     try {
@@ -248,7 +248,7 @@ const refreshSettings = async () => {
 
   const isDefault = (id: string, type: 'wallet' | 'bank') =>
     defaultAccountId === id && defaultAccountType === type;
-const handleRemoveWallet = async (id: string) => {
+  const handleRemoveWallet = async (id: string) => {
     setSettingsError('');
     setIsLoadingSettings(true);
     try {
@@ -292,7 +292,7 @@ const handleRemoveWallet = async (id: string) => {
       setIsLoadingSettings(false);
     }
   };
-const handleStartKyc = async () => {
+  const handleStartKyc = async () => {
     if (!walletAddressForKyc) {
       setSettingsError('No wallet address found for KYC');
       return;
@@ -593,7 +593,7 @@ const handleStartKyc = async () => {
           <p className="section-title">Sui Wallets</p>
           <div className="rounded-xl border border-border overflow-hidden">
             {(linkedWallets || []).map((wallet) => (
-              <div key={wallet.id} className="row-item px-4">
+              <div key={wallet.walletId} className="row-item px-4">
                 <div className="flex items-center gap-3">
                   <Wallet className="w-5 h-5" />
                   <div>
@@ -607,13 +607,13 @@ const handleStartKyc = async () => {
                   <button
                     onClick={() => {
                       navigator.clipboard.writeText(wallet.address);
-                      setCopiedWalletId(wallet.id);
+                      setCopiedWalletId(wallet.walletId);
                       setTimeout(() => setCopiedWalletId(null), 2000);
                     }}
                     className="p-2 hover:bg-secondary rounded-full transition-colors"
                     title="Copy Address"
                   >
-                    {copiedWalletId === wallet.id ? (
+                    {copiedWalletId === wallet.walletId ? (
                       <Check className="w-4 h-4 text-success" />
                     ) : (
                       <Copy className="w-4 h-4 text-muted-foreground" />
@@ -621,11 +621,11 @@ const handleStartKyc = async () => {
                   </button>
                   <div className="h-4 w-px bg-border mx-1" />
 
-                  {isDefault(wallet.id, 'wallet') ? (
+                  {isDefault(wallet.walletId, 'wallet') ? (
                     <span className="tag-success">Default</span>
                   ) : (
                     <button
-                      onClick={() => handleSetDefault(wallet.id, 'wallet')}
+                      onClick={() => handleSetDefault(wallet.walletId, 'wallet')}
                       className="text-xs font-medium text-muted-foreground hover:text-primary px-3 py-1.5 rounded-full hover:bg-secondary transition-colors"
                     >
                       Set Default
@@ -633,7 +633,7 @@ const handleStartKyc = async () => {
                   )}
                   {linkedWallets.length > 1 && (
                     <button
-                      onClick={() => handleRemoveWallet(wallet.id)}
+                      onClick={() => handleRemoveWallet(wallet.walletId)}
                       className="p-2 hover:bg-destructive/10 transition-colors"
                       title="Remove"
                     >
@@ -663,10 +663,7 @@ const handleStartKyc = async () => {
               </div>
             ) : (
               (linkedBanks || []).map((bank) => (
-                <div
-                  key={`${bank.bankId}-${bank.bankBin}-${bank.accountNumber}`}
-                  className="row-item px-4"
-                >
+                <div key={`${bank.bankId}-${bank.bankBin}-${bank.accountNumber}`} className="row-item px-4">
                   <div className="flex items-center gap-3">
                     <Building2 className="w-5 h-5" />
                     <div>

@@ -15,7 +15,7 @@ const Dashboard = () => {
         isConnected,
         isLoadingBalance,
     } = useWallet();
-const rewardPoints = useMemo(() => {
+    const rewardPoints = useMemo(() => {
         const u = user as { loyaltyPoints?: unknown } | null;
         return typeof u?.loyaltyPoints === 'number' ? u.loyaltyPoints : 0;
     }, [user]);
@@ -77,8 +77,15 @@ const rewardPoints = useMemo(() => {
         return (
             <div className="app-container flex items-center justify-center h-screen">
                 <div className="text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary mx-auto mb-4" />
                     <div className="text-lg font-semibold">Đang tải hồ sơ</div>
                     <div className="text-sm opacity-70 mt-1">Vui lòng đợi...</div>
+                    <button
+                        className="btn btn-ghost text-sm mt-4"
+                        onClick={() => window.location.reload()}
+                    >
+                        Tải lại trang
+                    </button>
                 </div>
             </div>
         );
