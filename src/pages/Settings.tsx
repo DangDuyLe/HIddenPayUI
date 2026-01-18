@@ -5,13 +5,42 @@ import { useAuth } from '@/context/AuthContext';
 import { Wallet, Building2, Scan, Check, Trash2, Shield, LogOut, Loader2, AlertTriangle, ChevronLeft, Copy } from 'lucide-react';
 import QRScanner from '@/components/QRScanner';
 import { useDisconnectWallet } from '@mysten/dapp-kit';
-import * as gaian from '@/services/gaian';
+import {
+  addOffchainBankByQr,
+  addOnchainWallet,
+  deleteOffchainBank,
+  deleteOnchainWallet,
+  getData,
+  getDefaultPaymentMethod,
+  getKycLink,
+  getKycStatus,
+  listOffchainBanks,
+  listOnchainWallets,
+  scanQr,
+  setDefaultPaymentMethod,
+} from '@/services/api';
+
 
 interface ScannedBankData {
   bankName: string;
   accountNumber: string;
   beneficiaryName: string;
 }
+
+type ApiWallet = {
+  id: string;
+  address: string;
+  label?: string | null;
+};
+
+type ApiBank = {
+  bankId: string;
+  bankName: string;
+  bankBin: string;
+  accountNumber: string;
+  accountName: string;
+  label?: string | null;
+};
 
 const Settings = () => {
   const navigate = useNavigate();
@@ -21,27 +50,94 @@ const Settings = () => {
     return typeof u?.username === 'string' ? u.username : null;
   })();
   const { mutate: disconnectSuiWallet } = useDisconnectWallet();
-  const {
-    username,
-    disconnect,
-    linkedBanks,
-    linkedWallets,
-    defaultAccountId,
-    defaultAccountType,
-    addBankAccount,
-    removeBankAccount,
-    addLinkedWallet,
-    removeLinkedWallet,
-    setDefaultAccount,
-  } = useWallet();
+  const { username, disconnect } = useWallet();
+
+  const [linkedBanks, setLinkedBanks] = useState<ApiBank[]>([]);
+  const [linkedWallets, setLinkedWallets] = useState<ApiWallet[]>([]);
+  const [defaultAccountId, setDefaultAccountId] = useState<string | null>(null);
+  const [defaultAccountType, setDefaultAccountType] = useState<'wallet' | 'bank'>('wallet');
+  const [kycStatus, setKycStatus] = useState<'unverified' | 'pending' | 'verified'>('unverified');
+  const [isLoadingSettings, setIsLoadingSettings] = useState(false);
+  const [settingsError, setSettingsError] = useState<string>('');
+
+  const walletAddressForKyc = (() => {
+    const u = user as { walletAddress?: unknown; address?: unknown } | null;
+    const addr = (typeof u?.walletAddress === 'string' && u.walletAddress.trim())
+      ? u.walletAddress.trim()
+      : (typeof u?.address === 'string' && u.address.trim())
+        ? u.address.trim()
+        : null;
+    return addr;
+  })();
 
   const [view, setView] = useState<'main' | 'add-wallet' | 'add-bank'>('main');
   const [showScanner, setShowScanner] = useState(false);
   const [newWalletName, setNewWalletName] = useState('');
   const [newWalletAddress, setNewWalletAddress] = useState('');
+const [scannedBankQr, setScannedBankQr] = useState<string | null>(null);
   const [scannedBank, setScannedBank] = useState<ScannedBankData | null>(null);
   const [copiedWalletId, setCopiedWalletId] = useState<string | null>(null);
 
+const refreshSettings = async () => {
+    setSettingsError('');
+    setIsLoadingSettings(true);
+    try {
+      const [walletsRes, banksRes, defaultRes] = await Promise.all([
+        listOnchainWallets(),
+        listOffchainBanks(),
+        getDefaultPaymentMethod(),
+      ]);
+
+      const walletsData = (walletsRes as { data?: unknown })?.data;
+      const walletsList = Array.isArray(walletsData)
+        ? walletsData
+        : (walletsData && typeof walletsData === 'object' && 'wallets' in (walletsData as Record<string, unknown>) && Array.isArray((walletsData as Record<string, unknown>).wallets))
+          ? ((walletsData as Record<string, unknown>).wallets as unknown[])
+          : [];
+
+      const banksData = (banksRes as { data?: unknown })?.data;
+      const banksList = Array.isArray(banksData)
+        ? banksData
+        : (banksData && typeof banksData === 'object' && 'banks' in (banksData as Record<string, unknown>) && Array.isArray((banksData as Record<string, unknown>).banks))
+          ? ((banksData as Record<string, unknown>).banks as unknown[])
+          : [];
+
+      setLinkedWallets(walletsList as ApiWallet[]);
+      setLinkedBanks(banksList as ApiBank[]);
+
+      const defaultWalletId = defaultRes.data?.walletId ?? null;
+      const defaultWalletType = defaultRes.data?.walletType ?? null;
+      if (defaultWalletId && defaultWalletType) {
+        setDefaultAccountId(defaultWalletId);
+        setDefaultAccountType(defaultWalletType === 'onchain' ? 'wallet' : 'bank');
+      } else {
+        setDefaultAccountId(null);
+        setDefaultAccountType('wallet');
+      }
+
+      if (walletAddressForKyc) {
+        const kycRes = await getKycStatus(walletAddressForKyc);
+        const status = kycRes.data?.status;
+        if (status === 'pending' || status === 'verified' || status === 'unverified') {
+          setKycStatus(status);
+        } else {
+          setKycStatus('unverified');
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load settings', e);
+      setSettingsError('Failed to load settings');
+    } finally {
+      setIsLoadingSettings(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      refreshSettings();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated]);
   // API parsing state
   const [isParsing, setIsParsing] = useState(false);
   const [parseError, setParseError] = useState('');
@@ -63,31 +159,60 @@ const Settings = () => {
     navigate('/login');
   };
 
-  const handleAddWallet = () => {
-    if (newWalletName && newWalletAddress) {
-      addLinkedWallet({ name: newWalletName, address: newWalletAddress });
+  const handleAddWallet = async () => {
+    if (!newWalletName || !newWalletAddress) return;
+
+    setSettingsError('');
+    setIsLoadingSettings(true);
+    try {
+      await addOnchainWallet({
+        address: newWalletAddress,
+        chain: 'Sui',
+        label: newWalletName,
+      });
+      await refreshSettings();
       setNewWalletName('');
       setNewWalletAddress('');
       setView('main');
+    } catch (e) {
+      console.error('Failed to add wallet', e);
+      setSettingsError('Failed to add wallet');
+    } finally {
+      setIsLoadingSettings(false);
     }
   };
 
-  // Handle bank QR scan with Gaian API
   const handleScanBank = async (qrString: string) => {
     setShowScanner(false);
     setIsParsing(true);
     setParseError('');
     setScannedBank(null);
+    setScannedBankQr(qrString);
 
     try {
-      const parsedBank = await gaian.parseQrString(qrString);
+      const res = await scanQr(qrString);
+      const payload = res.data as unknown;
 
-      if (parsedBank) {
-        setScannedBank({
-          bankName: parsedBank.bankName,
-          accountNumber: parsedBank.accountNumber,
-          beneficiaryName: parsedBank.beneficiaryName,
-        });
+      const bankInfo =
+        payload && typeof payload === 'object' && 'bankInfo' in (payload as Record<string, unknown>)
+          ? (payload as Record<string, unknown>).bankInfo
+          : undefined;
+
+      const bankName =
+        bankInfo && typeof bankInfo === 'object' && 'bankName' in (bankInfo as Record<string, unknown>)
+          ? (bankInfo as Record<string, unknown>).bankName
+          : undefined;
+      const accountNumber =
+        bankInfo && typeof bankInfo === 'object' && 'accountNumber' in (bankInfo as Record<string, unknown>)
+          ? (bankInfo as Record<string, unknown>).accountNumber
+          : undefined;
+      const beneficiaryName =
+        bankInfo && typeof bankInfo === 'object' && 'accountName' in (bankInfo as Record<string, unknown>)
+          ? (bankInfo as Record<string, unknown>).accountName
+          : undefined;
+
+      if (typeof bankName === 'string' && typeof accountNumber === 'string' && typeof beneficiaryName === 'string') {
+        setScannedBank({ bankName, accountNumber, beneficiaryName });
       } else {
         setParseError('Invalid QR Code. Please scan a valid bank QR.');
       }
@@ -99,17 +224,99 @@ const Settings = () => {
     }
   };
 
-  const handleAddBank = () => {
-    if (scannedBank) {
-      addBankAccount(scannedBank);
+  const handleAddBank = async () => {
+    if (!scannedBank) return;
+
+    setSettingsError('');
+    setIsLoadingSettings(true);
+    try {
+      await addOffchainBankByQr({
+        qrString: scannedBankQr ?? '',
+        label: scannedBank.bankName,
+      });
+      await refreshSettings();
       setScannedBank(null);
       setParseError('');
       setView('main');
+    } catch (e) {
+      console.error('Failed to add bank account', e);
+      setSettingsError('Failed to add bank account');
+    } finally {
+      setIsLoadingSettings(false);
     }
   };
 
   const isDefault = (id: string, type: 'wallet' | 'bank') =>
     defaultAccountId === id && defaultAccountType === type;
+const handleRemoveWallet = async (id: string) => {
+    setSettingsError('');
+    setIsLoadingSettings(true);
+    try {
+      await deleteOnchainWallet(id);
+      await refreshSettings();
+    } catch (e) {
+      console.error('Failed to remove wallet', e);
+      setSettingsError('Failed to remove wallet');
+    } finally {
+      setIsLoadingSettings(false);
+    }
+  };
+
+  const handleSetDefault = async (id: string, type: 'wallet' | 'bank') => {
+    setSettingsError('');
+    setIsLoadingSettings(true);
+    try {
+      await setDefaultPaymentMethod({
+        walletId: id,
+        walletType: type === 'wallet' ? 'onchain' : 'offchain',
+      });
+      await refreshSettings();
+    } catch (e) {
+      console.error('Failed to set default', e);
+      setSettingsError('Failed to set default account');
+    } finally {
+      setIsLoadingSettings(false);
+    }
+  };
+
+  const handleRemoveBank = async (id: string) => {
+    setSettingsError('');
+    setIsLoadingSettings(true);
+    try {
+      await deleteOffchainBank(id);
+      await refreshSettings();
+    } catch (e) {
+      console.error('Failed to remove bank', e);
+      setSettingsError('Failed to remove bank account');
+    } finally {
+      setIsLoadingSettings(false);
+    }
+  };
+const handleStartKyc = async () => {
+    if (!walletAddressForKyc) {
+      setSettingsError('No wallet address found for KYC');
+      return;
+    }
+
+    setSettingsError('');
+    setIsLoadingSettings(true);
+    try {
+      const res = await getKycLink({ walletAddress: walletAddressForKyc });
+      const url = res.data?.kycLink || res.data?.url;
+      if (url) {
+        window.open(url, '_blank', 'noopener,noreferrer');
+        setKycStatus('pending');
+      } else {
+        console.error('No KYC URL in response:', res.data);
+        setSettingsError('Failed to get KYC link');
+      }
+    } catch (e) {
+      console.error('Failed to start KYC', e);
+      setSettingsError('Failed to start KYC');
+    } finally {
+      setIsLoadingSettings(false);
+    }
+  };
 
   // Handle wallet QR scan - reject bank QRs, only accept wallet addresses
   const handleScanWallet = async (qrString: string) => {
@@ -118,26 +325,40 @@ const Settings = () => {
     setParseError('');
 
     try {
+      const trimmed = qrString.trim();
+
       // Check if it's a HiddenWallet QR (username)
-      if (gaian.isHiddenWalletQr(qrString)) {
+      if (trimmed.startsWith('@') || trimmed.toLowerCase().startsWith('hiddenwallet:')) {
         setParseError('This is a HiddenWallet username QR. Please scan a wallet address QR.');
         setIsParsing(false);
         return;
       }
 
       // Check if it's a valid wallet address (0x + 64 hex chars)
-      if (qrString.startsWith('0x') && /^0x[a-fA-F0-9]{64}$/.test(qrString)) {
-        setNewWalletAddress(qrString);
+      if (trimmed.startsWith('0x') && /^0x[a-fA-F0-9]{64}$/.test(trimmed)) {
+        setNewWalletAddress(trimmed);
         setIsParsing(false);
         return;
       }
 
-      // Try to parse as bank QR
-      const parsedBank = await gaian.parseQrString(qrString);
-      if (parsedBank) {
-        setParseError('This is a Bank QR code. Please scan a wallet address QR instead.');
-        setIsParsing(false);
-        return;
+      // Ask BE to scan (to distinguish Bank QR vs garbage)
+      try {
+        const res = await scanQr(qrString);
+        const payload = res.data as unknown;
+        const isBankPayload =
+          !!payload &&
+          typeof payload === 'object' &&
+          'bankName' in (payload as Record<string, unknown>) &&
+          'accountNumber' in (payload as Record<string, unknown>) &&
+          'beneficiaryName' in (payload as Record<string, unknown>);
+
+        if (isBankPayload) {
+          setParseError('This is a Bank QR code. Please scan a wallet address QR instead.');
+          setIsParsing(false);
+          return;
+        }
+      } catch {
+        // ignore
       }
 
       // Unknown QR format
@@ -371,12 +592,12 @@ const Settings = () => {
         <div className="mb-6 animate-slide-up stagger-1">
           <p className="section-title">Sui Wallets</p>
           <div className="rounded-xl border border-border overflow-hidden">
-            {linkedWallets.map((wallet) => (
+            {(linkedWallets || []).map((wallet) => (
               <div key={wallet.id} className="row-item px-4">
                 <div className="flex items-center gap-3">
                   <Wallet className="w-5 h-5" />
                   <div>
-                    <p className="font-medium">{wallet.name}</p>
+                    <p className="font-medium">{wallet.label || 'Wallet'}</p>
                     <p className="text-sm text-muted-foreground font-mono">
                       {wallet.address.slice(0, 8)}...{wallet.address.slice(-4)}
                     </p>
@@ -404,7 +625,7 @@ const Settings = () => {
                     <span className="tag-success">Default</span>
                   ) : (
                     <button
-                      onClick={() => setDefaultAccount(wallet.id, 'wallet')}
+                      onClick={() => handleSetDefault(wallet.id, 'wallet')}
                       className="text-xs font-medium text-muted-foreground hover:text-primary px-3 py-1.5 rounded-full hover:bg-secondary transition-colors"
                     >
                       Set Default
@@ -412,7 +633,7 @@ const Settings = () => {
                   )}
                   {linkedWallets.length > 1 && (
                     <button
-                      onClick={() => removeLinkedWallet(wallet.id)}
+                      onClick={() => handleRemoveWallet(wallet.id)}
                       className="p-2 hover:bg-destructive/10 transition-colors"
                       title="Remove"
                     >
@@ -441,30 +662,33 @@ const Settings = () => {
                 No banks linked
               </div>
             ) : (
-              linkedBanks.map((bank) => (
-                <div key={bank.id} className="row-item px-4">
+              (linkedBanks || []).map((bank) => (
+                <div
+                  key={`${bank.bankId}-${bank.bankBin}-${bank.accountNumber}`}
+                  className="row-item px-4"
+                >
                   <div className="flex items-center gap-3">
                     <Building2 className="w-5 h-5" />
                     <div>
-                      <p className="font-medium">{bank.bankName}</p>
+                      <p className="font-medium">{bank.label || bank.bankName}</p>
                       <p className="text-sm text-muted-foreground">
-                        ****{bank.accountNumber.slice(-4)} · {bank.beneficiaryName}
+                        ****{bank.accountNumber.slice(-4)} · {bank.accountName}
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    {isDefault(bank.id, 'bank') ? (
+                    {isDefault(bank.bankId, 'bank') ? (
                       <span className="tag-success">Default</span>
                     ) : (
                       <button
-                        onClick={() => setDefaultAccount(bank.id, 'bank')}
+                        onClick={() => handleSetDefault(bank.bankId, 'bank')}
                         className="text-xs font-medium text-muted-foreground hover:text-primary px-3 py-1.5 rounded-full hover:bg-secondary transition-colors"
                       >
                         Set Default
                       </button>
                     )}
                     <button
-                      onClick={() => removeBankAccount(bank.id)}
+                      onClick={() => handleRemoveBank(bank.bankId)}
                       className="p-2 hover:bg-destructive/10 transition-colors"
                       title="Remove"
                     >
@@ -499,10 +723,11 @@ const Settings = () => {
               <span className="tag">Unverified</span>
             </div>
             <button
-              disabled
-              className="w-full py-3 mt-4 border border-border text-muted-foreground cursor-not-allowed"
+              onClick={handleStartKyc}
+              disabled={isLoadingSettings || !walletAddressForKyc}
+              className="w-full py-3 mt-4 border border-border hover:bg-accent transition-colors"
             >
-              Coming Soon
+              Start KYC
             </button>
           </div>
         </div>

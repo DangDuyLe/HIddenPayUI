@@ -9,6 +9,21 @@ const api = axios.create({
   },
 });
 
+type ApiEnvelope<T> = T | { data: T } | { result: T };
+
+const unwrap = <T>(payload: ApiEnvelope<T>): T => {
+  if (payload && typeof payload === 'object') {
+    if ('data' in payload) return (payload as { data: T }).data;
+    if ('result' in payload) return (payload as { result: T }).result;
+  }
+  return payload as T;
+};
+
+export const getData = async <T>(promise: Promise<{ data: ApiEnvelope<T> }>): Promise<T> => {
+  const res = await promise;
+  return unwrap<T>(res.data);
+};
+
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('jwt_token');
   if (token) {
@@ -72,7 +87,65 @@ export const checkUsername = (username: string) =>
 export const postOnboarding = (dto: { username: string; email?: string; referralUsername?: string }) =>
   api.post('/users/onboarding', dto);
 
-export const scanQr = (qrString: string) => api.post('/transfer/scan', { qrString });
+export const scanQr = async (qrString: string) => {
+  const data = await getData(api.post('/transfer/scan', { qrString }));
+  return { data };
+};
 
+export type OnchainWalletDto = {
+  id: string;
+  address: string;
+  label?: string | null;
+  createdAt?: string;
+};
+
+export type OffchainBankDto = {
+  id: string;
+  bankName: string;
+  accountNumber: string;
+  beneficiaryName: string;
+  label?: string | null;
+  createdAt?: string;
+};
+
+export type PaymentMethodDefaultResponseDto = {
+  walletId: string | null;
+  walletType: 'onchain' | 'offchain' | null;
+};
+
+export const listOnchainWallets = async () => {
+  const data = await getData<OnchainWalletDto[]>(api.get('/wallet/onchain'));
+  return { data };
+};
+export const addOnchainWallet = (dto: { address: string; chain: string; label?: string; walletProvider?: string; publicKey?: string }) =>
+  api.post('/wallet/onchain/add', dto);
+export const deleteOnchainWallet = (id: string) => api.delete(`/wallet/onchain/${id}`);
+
+export const listOffchainBanks = async () => {
+  const data = await getData<{ total: number; banks: OffchainBankDto[] }>(api.get('/wallet/offchain'));
+  return { data };
+};
+export const addOffchainBankByQr = (dto: { qrString: string; label?: string }) => api.post('/wallet/offchain/add', dto);
+export const deleteOffchainBank = (id: string) => api.delete(`/wallet/offchain/${id}`);
+
+export const getDefaultPaymentMethod = async () => {
+  const data = await getData<PaymentMethodDefaultResponseDto>(api.get('/payment-methods/default'));
+  return { data };
+};
+export const setDefaultPaymentMethod = (dto: { walletId: string; walletType: 'onchain' | 'offchain' }) =>
+  api.post('/payment-methods/default', dto);
+
+export type KycLinkResponseDto = {
+  url?: string;
+  kycLink?: string;
+};
+
+export type KycStatusResponseDto = {
+  status: 'unverified' | 'pending' | 'verified' | string;
+};
+
+export const getKycLink = (dto: { walletAddress: string }) => api.post<KycLinkResponseDto>('/kyc/get-link', dto);
+export const getKycStatus = (walletAddress: string) =>
+  api.get<KycStatusResponseDto>('/kyc/status', { params: { walletAddress } });
 export default api;
 
