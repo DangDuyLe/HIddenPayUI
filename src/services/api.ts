@@ -45,6 +45,13 @@ export const postZkLoginSalt = (dto: { sub: string }) => api.post('/auth/zklogin
 export const postZkLoginRegister = (dto: { nonceBase64Url: string; maxEpoch: number }) =>
   api.post('/auth/zklogin/register', dto);
 export const postZkLoginVerify = (dto: unknown) => api.post('/auth/zklogin/verify', dto);
+export type RegisterRequestDto = {
+  walletAddress: string;
+  username: string;
+  email?: string;
+};
+
+export const postRegister = (dto: RegisterRequestDto) => api.post('/wallet/register', dto);
 
 export const getProfile = () => api.get('/users/profile');
 

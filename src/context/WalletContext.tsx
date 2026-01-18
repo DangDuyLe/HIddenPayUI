@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
 import { useSignAndExecuteTransaction, useSuiClient, useCurrentAccount } from '@mysten/dapp-kit';
 import { Transaction } from '@mysten/sui/transactions';
+import { getProfile } from '@/services/api';
 
 // Testnet USDC via Aftermath Faucet
 const USDC_COIN_TYPE = "0xcdd397f2cffb7f5d439f56fc01afe5585c5f06e3bcd2ee3a21753c566de313d9::usdc::USDC";
@@ -73,8 +74,6 @@ const registeredUsers: Record<string, HiddenWalletUser> = {
 };
 
 interface WalletState {
-  isConnected: boolean;
-  walletAddress: string | null;
   username: string | null;
   suiBalance: number;
   usdcBalance: number;
@@ -87,12 +86,14 @@ interface WalletState {
   contacts: string[];
   kycStatus: KYCStatus;
   isLoadingBalance: boolean;
+  isProfileLoading: boolean;
   rewardPoints: number;
   referralStats: ReferralStats;
 }
 
-interface WalletContextType extends WalletState {
-  connectWallet: (address?: string) => void;
+type WalletContextType = WalletState & {
+  isConnected: boolean;
+  walletAddress: string | null;
   setUsername: (username: string) => void;
   sendUsdc: (toAddress: string, amount: number) => Promise<{ success: boolean; digest?: string }>;
   disconnect: () => void;
@@ -107,7 +108,7 @@ interface WalletContextType extends WalletState {
   getDefaultAccount: () => { id: string; type: DefaultAccountType; name: string } | null;
   refreshBalance: () => Promise<void>;
   isValidWalletAddress: (address: string) => boolean;
-}
+};
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
@@ -128,8 +129,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const { mutateAsync: signAndExecute } = useSignAndExecuteTransaction();
 
   const [state, setState] = useState<WalletState>({
-    isConnected: false,
-    walletAddress: null,
     username: null,
     suiBalance: 0,
     usdcBalance: 0,
@@ -142,6 +141,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     contacts: ['@alice', '@bob'],
     kycStatus: 'unverified',
     isLoadingBalance: false,
+    isProfileLoading: true,
     rewardPoints: 1250,
     referralStats: { totalCommission: 15.5, f0Volume: 50000, f0Count: 12 },
   });
@@ -278,33 +278,67 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   // Auto-refresh balance when account connects or changes
   useEffect(() => {
-    if (currentAccount?.address && state.isConnected) {
+    if (currentAccount?.address) {
       refreshBalance();
     }
-  }, [currentAccount?.address, state.isConnected, refreshBalance]);
+  }, [currentAccount?.address, refreshBalance]);
+
+  // Hydrate profile from backend when JWT exists
+  useEffect(() => {
+    const token = localStorage.getItem('jwt_token');
+
+    if (!token) {
+      setState((prev) => ({ ...prev, isProfileLoading: false, username: null }));
+      return;
+    }
+
+    let cancelled = false;
+
+    (async () => {
+      setState((prev) => ({ ...prev, isProfileLoading: true }));
+      try {
+        const res = await getProfile();
+        const data = res.data as unknown as {
+          username?: unknown;
+          loyaltyPoints?: unknown;
+          commissionBalance?: unknown;
+          refereesCount?: unknown;
+        };
+        if (cancelled) return;
+
+        const username = typeof data?.username === 'string' ? data.username : null;
+        const rewardPoints = typeof data?.loyaltyPoints === 'number' ? data.loyaltyPoints : null;
+        const totalCommission = typeof data?.commissionBalance === 'number' ? data.commissionBalance : null;
+        const f0Count = typeof data?.refereesCount === 'number' ? data.refereesCount : null;
+
+        setState((prev) => ({
+          ...prev,
+          username,
+          rewardPoints: rewardPoints ?? prev.rewardPoints,
+          referralStats: {
+            ...prev.referralStats,
+            totalCommission: totalCommission ?? prev.referralStats.totalCommission,
+            f0Count: f0Count ?? prev.referralStats.f0Count,
+          },
+          isProfileLoading: false,
+        }));
+      } catch {
+        if (cancelled) return;
+        setState((prev) => ({ ...prev, isProfileLoading: false, username: null }));
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Validate wallet address format (0x followed by 64 hex chars)
   const isValidWalletAddress = (address: string): boolean => {
     return /^0x[a-fA-F0-9]{64}$/.test(address);
   };
 
-  const connectWallet = (address?: string) => {
-    const walletId = Date.now().toString();
-    const newWallet: LinkedWallet = {
-      id: walletId,
-      address: address || '0x0000...0000',
-      name: 'Main Wallet',
-    };
-
-    setState(prev => ({
-      ...prev,
-      isConnected: true,
-      walletAddress: address || null,
-      linkedWallets: [newWallet],
-      defaultAccountId: walletId,
-      defaultAccountType: 'wallet',
-    }));
-  };
+  const walletAddress = currentAccount?.address ?? null;
 
   const setUsername = (username: string) => {
     setState(prev => ({ ...prev, username }));
@@ -396,8 +430,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   const disconnect = () => {
     setState({
-      isConnected: false,
-      walletAddress: null,
       username: null,
       suiBalance: 0,
       usdcBalance: 0,
@@ -410,6 +442,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       contacts: ['@alice', '@bob'],
       kycStatus: 'unverified',
       isLoadingBalance: false,
+      isProfileLoading: false,
       rewardPoints: 1250,
       referralStats: { totalCommission: 15.5, f0Volume: 50000, f0Count: 12 },
     });
@@ -532,24 +565,27 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <WalletContext.Provider value={{
-      ...state,
-      connectWallet,
-      setUsername,
-      sendUsdc,
-      disconnect,
-      addBankAccount,
-      removeBankAccount,
-      addLinkedWallet,
-      removeLinkedWallet,
-      setDefaultAccount,
-      addContact,
-      lookupBankAccount,
-      lookupUsername,
-      getDefaultAccount,
-      refreshBalance,
-      isValidWalletAddress,
-    }}>
+    <WalletContext.Provider
+      value={{
+        ...state,
+        isConnected: Boolean(walletAddress),
+        walletAddress,
+        setUsername,
+        sendUsdc,
+        disconnect,
+        addBankAccount,
+        removeBankAccount,
+        addLinkedWallet,
+        removeLinkedWallet,
+        setDefaultAccount,
+        addContact,
+        lookupBankAccount,
+        lookupUsername,
+        getDefaultAccount,
+        refreshBalance,
+        isValidWalletAddress,
+      }}
+    >
       {children}
     </WalletContext.Provider>
   );

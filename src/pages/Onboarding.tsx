@@ -1,25 +1,34 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useCurrentAccount } from '@mysten/dapp-kit';
 import { useWallet } from '@/context/WalletContext';
-import { checkUsername, postOnboarding } from '@/services/api';
+import { useAuth } from '@/context/AuthContext';
+import { checkUsername, postOnboarding, postRegister } from '@/services/api';
 import { Mail, Users } from 'lucide-react';
 
 const Onboarding = () => {
   const navigate = useNavigate();
-  const { setUsername, isConnected, username: existingUsername } = useWallet();
+  const currentAccount = useCurrentAccount();
+  const { isAuthenticated } = useAuth();
+  const { setUsername, username: existingUsername } = useWallet();
   const [inputUsername, setInputUsername] = useState('');
   const [email, setEmail] = useState('');
   const [referral, setReferral] = useState('');
   const [error, setError] = useState('');
   const [isChecking, setIsChecking] = useState(false);
 
-  if (!isConnected) {
-    navigate('/');
-    return null;
-  }
+  useEffect(() => {
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
 
-  if (existingUsername) {
-    navigate('/dashboard');
+    if (existingUsername) {
+      navigate('/dashboard');
+    }
+  }, [existingUsername, isAuthenticated, navigate]);
+
+  if (!isAuthenticated || existingUsername) {
     return null;
   }
 
@@ -56,6 +65,16 @@ const Onboarding = () => {
         username: clean,
         email: email || undefined,
         referralUsername: referral || undefined,
+      });
+
+      if (!currentAccount?.address) {
+        throw new Error('No wallet connected');
+      }
+
+      await postRegister({
+        walletAddress: currentAccount.address,
+        username: clean,
+        email: email || undefined,
       });
 
       setUsername(clean);

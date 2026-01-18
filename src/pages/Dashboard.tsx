@@ -12,6 +12,7 @@ const Dashboard = () => {
         transactions,
         isConnected,
         isLoadingBalance,
+        isProfileLoading,
         refreshBalance,
         rewardPoints,
         referralStats,
@@ -21,13 +22,42 @@ const Dashboard = () => {
     const [copiedDigest, setCopiedDigest] = useState<string | null>(null);
 
     useEffect(() => {
-        if (!isConnected || !username) {
-            navigate('/');
+        if (!isProfileLoading && !isConnected) {
+            navigate('/login');
         }
-    }, [isConnected, username, navigate]);
+    }, [isConnected, isProfileLoading, navigate]);
 
-    if (!isConnected || !username) {
-        return null;
+    if (isProfileLoading) {
+        return (
+            <div className="app-container flex items-center justify-center h-screen">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary" />
+            </div>
+        );
+    }
+
+    if (!isConnected) {
+        return (
+            <div className="app-container flex items-center justify-center h-screen">
+                <div className="text-center">
+                    <div className="text-lg font-semibold">Wallet chưa connect</div>
+                    <div className="text-sm opacity-70 mt-1">Bạn cần connect ví Sui để xem Dashboard.</div>
+                    <button
+                        className="btn btn-primary mt-4"
+                        onClick={() => navigate('/login')}
+                    >
+                        Quay lại Login
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    if (!username) {
+        return (
+            <div className="app-container flex items-center justify-center h-screen">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary" />
+            </div>
+        );
     }
 
     const formatTime = (date: Date) => {

@@ -21,7 +21,7 @@ const isInSlushBrowser = (): boolean => {
 
 const Login = () => {
   const navigate = useNavigate();
-  const { connectWallet, disconnect } = useWallet();
+  const { disconnect } = useWallet();
   const currentAccount = useCurrentAccount();
   const { mutate: disconnectSuiWallet } = useDisconnectWallet();
   const [hasClickedConnect, setHasClickedConnect] = useState(false);
@@ -38,10 +38,10 @@ const { loginWithWallet, isAuthLoading } = useAuth();
   }, []);
 
   useEffect(() => {
-    if (currentAccount && hasClickedConnect) {
-      connectWallet(currentAccount.address);
-    }
-  }, [currentAccount, hasClickedConnect, connectWallet]);
+    if (!hasClickedConnect) return;
+    if (!currentAccount?.address) return;
+    setShowWalletOptions(true);
+  }, [currentAccount?.address, hasClickedConnect]);
 
 
 
@@ -57,8 +57,8 @@ const { loginWithWallet, isAuthLoading } = useAuth();
   const handleAuthLogin = async () => {
     setAuthError(null);
     try {
-      await loginWithWallet();
-      navigate('/dashboard');
+      const { needsOnboarding } = await loginWithWallet();
+      navigate(needsOnboarding ? '/onboarding' : '/dashboard');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Login failed';
       setAuthError(message);

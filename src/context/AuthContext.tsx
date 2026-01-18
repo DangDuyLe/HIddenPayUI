@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useCurrentAccount, useSignPersonalMessage } from '@mysten/dapp-kit';
 import { getChallenge, getProfile, postVerify, WalletChallengeResponseDto } from '@/services/api';
 
@@ -24,28 +24,64 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const [token, setToken] = useState<string | null>(() => localStorage.getItem(TOKEN_STORAGE_KEY));
   const [user, setUser] = useState<AuthUser | null>(null);
-  const [isAuthLoading, setIsAuthLoading] = useState(false);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
+
+  const isLoginInFlightRef = useRef(false);
 
   const isAuthenticated = useMemo(() => Boolean(token), [token]);
-
-  const refreshProfile = useCallback(async () => {
-    if (!token) {
-      setUser(null);
-      return;
-    }
-
-    const res = await getProfile();
-    setUser(res.data);
-  }, [token]);
-
-  useEffect(() => {
-    void refreshProfile();
-  }, [refreshProfile]);
 
   const logout = useCallback(() => {
     localStorage.removeItem(TOKEN_STORAGE_KEY);
     setToken(null);
     setUser(null);
+    setIsAuthLoading(false);
+  }, []);
+
+  const refreshProfile = useCallback(async () => {
+    const t = localStorage.getItem(TOKEN_STORAGE_KEY);
+    if (!t) {
+      setToken(null);
+      setUser(null);
+      return;
+    }
+
+    const res = await getProfile();
+    setToken(t);
+    setUser(res.data);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      setIsAuthLoading(true);
+      try {
+        const t = localStorage.getItem(TOKEN_STORAGE_KEY);
+        if (!t) {
+          if (cancelled) return;
+          setToken(null);
+          setUser(null);
+          return;
+        }
+
+        const res = await getProfile();
+        if (cancelled) return;
+        setToken(t);
+        setUser(res.data);
+      } catch {
+        if (cancelled) return;
+        localStorage.removeItem(TOKEN_STORAGE_KEY);
+        setToken(null);
+        setUser(null);
+      } finally {
+        if (cancelled) return;
+        setIsAuthLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const loginWithWallet = useCallback(async (): Promise<{ needsOnboarding: boolean }> => {
@@ -53,7 +89,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error('No wallet connected');
     }
 
+    if (isLoginInFlightRef.current) {
+      return { needsOnboarding: false };
+    }
+
+    isLoginInFlightRef.current = true;
     setIsAuthLoading(true);
+
     try {
       const challengeRes = await getChallenge(account.address);
       const challenge: WalletChallengeResponseDto = challengeRes.data;
@@ -93,14 +135,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setToken(accessToken);
 
       if (!needsOnboarding) {
-        await refreshProfile();
+        try {
+          await refreshProfile();
+        } catch {
+          logout();
+        }
       }
 
       return { needsOnboarding };
     } finally {
+      isLoginInFlightRef.current = false;
       setIsAuthLoading(false);
     }
-  }, [account?.address, refreshProfile, signPersonalMessage]);
+  }, [account?.address, logout, refreshProfile, signPersonalMessage]);
 
   const value: AuthContextValue = useMemo(
     () => ({

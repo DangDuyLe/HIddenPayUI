@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useWallet } from '@/context/WalletContext';
+import { useAuth } from '@/context/AuthContext';
 import { Wallet, Building2, Scan, Check, Trash2, Star, Shield, LogOut, Loader2, AlertTriangle, ChevronLeft, Copy } from 'lucide-react';
 import QRScanner from '@/components/QRScanner';
 import { useDisconnectWallet } from '@mysten/dapp-kit';
@@ -14,6 +15,7 @@ interface ScannedBankData {
 
 const Settings = () => {
   const navigate = useNavigate();
+  const { logout } = useAuth();
   const { mutate: disconnectSuiWallet } = useDisconnectWallet();
   const {
     username,
@@ -49,6 +51,7 @@ const Settings = () => {
   const handleDisconnect = () => {
     disconnectSuiWallet();
     disconnect();
+    logout();
     navigate('/login');
   };
 
