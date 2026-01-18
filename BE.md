@@ -13,7 +13,7 @@ http://localhost:3000/api
 ```http
 GET /auth/challenge?address=WALLET_ADDRESS
 ```
-
+ 
 #### Verify Signature & Get JWT
 ```http
 POST /auth/verify
