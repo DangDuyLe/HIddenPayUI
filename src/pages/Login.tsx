@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { useWallet } from '@/context/WalletContext';
 import { useAuth } from '@/context/AuthContext';
-import { ConnectButton, useCurrentAccount, useDisconnectWallet } from '@mysten/dapp-kit';
+import { ConnectButton, useCurrentAccount, useDisconnectWallet, useAccounts } from '@mysten/dapp-kit';
 import { useEffect, useState } from 'react';
 import { Copy, Check, LogOut, Wallet, ChevronRight } from 'lucide-react';
 
@@ -23,6 +23,7 @@ const Login = () => {
   const navigate = useNavigate();
   const { disconnect } = useWallet();
   const currentAccount = useCurrentAccount();
+  const accounts = useAccounts();
   const { mutate: disconnectSuiWallet } = useDisconnectWallet();
   const [hasClickedConnect, setHasClickedConnect] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -31,6 +32,9 @@ const Login = () => {
   const [showWalletOptions, setShowWalletOptions] = useState(false);
 const { loginWithWallet, isAuthLoading } = useAuth();
   const [, setAuthError] = useState<string | null>(null);
+
+  // Use currentAccount if valid, otherwise fallback to first account if available
+  const activeAccount = currentAccount || (accounts.length > 0 ? accounts[0] : null);
 
   useEffect(() => {
     setIsMobile(isMobileDevice());
@@ -47,7 +51,7 @@ const { loginWithWallet, isAuthLoading } = useAuth();
 
   const handleConnectClick = () => {
     // If already connected, show options instead of auto-navigating
-    if (currentAccount) {
+    if (activeAccount) {
       setShowWalletOptions(true);
       return;
     }
@@ -99,7 +103,40 @@ const { loginWithWallet, isAuthLoading } = useAuth();
 
         {/* Bottom section */}
         <div className="space-y-4 animate-slide-up pb-6">
-          {showMobileInstructions ? (
+          {/* Priority: Show connected options first, then mobile instructions, then default */}
+          {activeAccount ? (
+            /* Connected Wallet Options Card */
+            <div className="card-modern p-5 space-y-4 animate-fade-in">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Wallet className="w-5 h-5 text-primary" />
+                </div>
+                <div className="flex-1">
+                  <p className="font-medium">Connected Wallet</p>
+                  <p className="text-sm text-muted-foreground font-mono">
+                    {activeAccount.address.slice(0, 8)}...{activeAccount.address.slice(-6)}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={handleContinueWithWallet}
+                className="btn-primary flex items-center justify-center gap-2"
+              >
+                Continue to App
+                <ChevronRight className="w-4 h-4" />
+              </button>
+
+              <button
+                onClick={handleDisconnect}
+                className="w-full py-3 rounded-xl border border-destructive text-destructive hover:bg-destructive hover:text-white transition-colors flex items-center justify-center gap-2"
+              >
+                <LogOut className="w-4 h-4" />
+                Disconnect Wallet
+              </button>
+            </div>
+          ) : showMobileInstructions ? (
+            /* Mobile: Show instructions when not connected */
             <>
               <div className="card-modern p-5 space-y-4">
                 <p className="text-sm font-medium text-center">
@@ -178,6 +215,7 @@ const { loginWithWallet, isAuthLoading } = useAuth();
               </button>
             </div>
           ) : (
+            /* Desktop: Just show ConnectButton */
             <div onClick={handleConnectClick}>
               <div className="sui-connect-wrapper">
                 <ConnectButton />
