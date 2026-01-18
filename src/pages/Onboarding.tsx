@@ -1,28 +1,38 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useCurrentAccount } from '@mysten/dapp-kit';
 import { useWallet } from '@/context/WalletContext';
+import { useAuth } from '@/context/AuthContext';
+import { checkUsername, postOnboarding, postRegister } from '@/services/api';
 import { Mail, Users } from 'lucide-react';
 
 const Onboarding = () => {
   const navigate = useNavigate();
-  const { setUsername, isConnected, username: existingUsername } = useWallet();
+  const currentAccount = useCurrentAccount();
+  const { isAuthenticated } = useAuth();
+  const { setUsername, username: existingUsername } = useWallet();
   const [inputUsername, setInputUsername] = useState('');
   const [email, setEmail] = useState('');
   const [referral, setReferral] = useState('');
   const [error, setError] = useState('');
   const [isChecking, setIsChecking] = useState(false);
 
-  if (!isConnected) {
-    navigate('/');
+  useEffect(() => {
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
+
+    if (existingUsername) {
+      navigate('/dashboard');
+    }
+  }, [existingUsername, isAuthenticated, navigate]);
+
+  if (!isAuthenticated || existingUsername) {
     return null;
   }
 
-  if (existingUsername) {
-    navigate('/dashboard');
-    return null;
-  }
-
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const clean = inputUsername.replace('@', '').trim().toLowerCase();
 
     if (clean.length < 3) {
@@ -35,21 +45,56 @@ const Onboarding = () => {
       return;
     }
 
-    // Validate email if provided
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       setError('Please enter a valid email address');
       return;
     }
 
     setIsChecking(true);
+    setError('');
 
-    // Log registration data (email and referral can be sent to backend later)
+    try {
+      const res = await checkUsername(clean);
+      const available = Boolean(res.data?.available);
+      if (!available) {
+        setError('Username already taken');
+        return;
+      }
 
-    // Simulate check
-    setTimeout(() => {
+      await postOnboarding({
+        username: clean,
+        email: email || undefined,
+        referralUsername: referral || undefined,
+      });
+
+      if (!currentAccount?.address) {
+        throw new Error('No wallet connected');
+      }
+
+      try {
+        await postRegister({
+          walletAddress: currentAccount.address,
+          username: clean,
+          email: email || undefined,
+        });
+      } catch (err: unknown) {
+        const e = err as { response?: { status?: number }; message?: string };
+        const status = e?.response?.status;
+        const message = typeof e?.message === 'string' ? e.message : '';
+
+        if (status !== 409 && !message.includes('status code 409')) {
+          throw err;
+        }
+      }
+
       setUsername(clean);
       navigate('/dashboard');
-    }, 500);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Onboarding failed';
+      setError(message);
+    } finally {
+      setIsChecking(false);
+    }
   };
 
   return (
