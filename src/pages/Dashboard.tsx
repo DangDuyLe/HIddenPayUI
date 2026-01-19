@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { useWallet } from '@/context/WalletContext';
 import { useAuth } from '@/context/AuthContext';
 import { useMemo, useState } from 'react';
-import { ArrowUpRight, ArrowDownLeft, Eye, EyeOff, Copy, Check, Users, Award, Trophy, Crown } from 'lucide-react';
+import { ArrowUpRight, ArrowDownLeft, Eye, EyeOff, Copy, Check, Users, Award, Trophy, Crown, Settings } from 'lucide-react';
 import { toast } from 'sonner';
 
 const Dashboard = () => {
@@ -149,11 +149,10 @@ const Dashboard = () => {
                     <div className="flex items-center gap-2">
                         <button
                             onClick={() => navigate('/settings')}
-                            className="user-pill"
+                            className="p-2.5 bg-secondary hover:bg-secondary/80 rounded-full transition-colors"
+                            title="Settings"
                         >
-                            <div className="user-avatar">
-                                <span className="text-xs font-semibold">{username[0].toUpperCase()}</span>
-                            </div>
+                            <Settings className="w-5 h-5 text-muted-foreground" />
                         </button>
                         <button
                             onClick={copyUsername}
@@ -271,7 +270,7 @@ const Dashboard = () => {
                     </div>
                 </div>
 
-                <div className="mt-6 animate-slide-up stagger-3 hidden md:block">
+                <div className="mt-6 animate-slide-up stagger-3">
                     <div className="flex justify-between items-center mb-3">
                         <h3 className="section-title mb-0">Transactions History</h3>
                         <button

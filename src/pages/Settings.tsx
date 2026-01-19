@@ -92,7 +92,7 @@ const Settings = () => {
     if (currentAddress) {
       const isCurrentInList = linkedWallets.some(w => w.address.toLowerCase() === currentAddress.toLowerCase());
       if (!isCurrentInList) {
-        wallets.unshift({
+        wallets.push({
           walletId: 'current-session',
           address: currentAddress,
           label: 'Main Wallet',
@@ -748,7 +748,7 @@ const Settings = () => {
                         </button>
                         <div className="h-4 w-px bg-border mx-1" />
 
-                        {isDefault(wallet.walletId, 'wallet') || displayWallets.length === 1 ? (
+                        {isDefault(wallet.walletId, 'wallet') || (!isLoadingSettings && displayWallets.length === 1 && linkedBanks.length === 0 && !defaultAccountId) ? (
                           <span className="tag-success">Default</span>
                         ) : (
                           <button
