@@ -406,7 +406,8 @@ const isVnRecipient = (recipientCountry ?? '').toUpperCase() === 'VN';
         if (amountNum < 0.7) { setError('Minimum amount per transaction is $0.7'); return; }
         if (amountNum > 500) { setError('Maximum amount per transaction is $500'); return; }
       } else {
-        if (!isVnRecipient) { setError('KYC required for this recipient'); return; }
+        if (!isVnRecipient) { openKycPopup('KYC verification required for this recipient'); return; }
+        if (amountNum < 0.7) { openKycPopup('Minimum amount per transaction is $0.7'); return; }
         if (amountNum >= 4) {
           openKycPopup('KYC verification required for amounts of $4 or more');
           return;
