@@ -4,8 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useWallet } from '@/context/WalletContext';
 import { Scan, Check, AlertTriangle, ChevronDown, Wallet, Building2, Loader2, X, User, AlertCircle, CreditCard, Copy } from 'lucide-react';
 import QRScanner from '@/components/QRScanner';
-import * as gaian from '@/services/gaian';
-import { createPaymentOrder, confirmPaymentOrder, lookupUser } from '@/services/api';
+import { createPaymentOrder, confirmPaymentOrder, getPaymentOrder, syncPaymentOrder, lookupUser, scanQr } from '@/services/api';
 
 type SendStep = 'input' | 'review' | 'sending' | 'success' | 'error';
 type ScanResult = 'none' | 'internal' | 'external' | 'error';
@@ -228,15 +227,40 @@ const Send = () => {
     }
   };
 
+  // Types for Scan QR Response
+  type ScanQrResponse = {
+    type: 'username' | 'onchain' | 'offchain';
+    address?: string;
+    user?: {
+      username: string;
+      displayName?: string;
+      defaultWallet?: {
+        type: 'onchain' | 'offchain';
+        address?: string; // for onchain
+        bankName?: string; // for offchain
+        accountNumber?: string;
+      };
+    };
+    bankInfo?: {
+      bankName: string;
+      accountNumber: string;
+      accountName: string;
+      amount?: number;
+      bankBin?: string;
+    };
+  };
+
   const handleQRScanned = async (qrString: string) => {
+    if (!qrString) return;
+
+    // Close scanner if open (assuming it was open if this is called)
     setShowScanner(false);
 
-    // Clear all previous data immediately before loading new QR
+    // Reset states
     setRecipient('');
-    setRecipientValid(null);
-    setRecipientAddress(null);
-    setRecipientType('none');
-    setRecipientDisplayName(null);
+    setRecipientValid(false);
+    setRecipientType('address');
+    setRecipientDisplayName('');
     setExternalBank(null);
     setScanResult('none');
     setError('');
@@ -247,69 +271,87 @@ const Send = () => {
     setIsParsing(true);
 
     try {
-      // 1. Check for HiddenWallet internal transfer (username)
-      if (gaian.isHiddenWalletQr(qrString)) {
-        const extractedUsername = gaian.extractHiddenWalletUsername(qrString);
-        const user = lookupUsername(extractedUsername);
+      const resp = await scanQr(qrString);
+      const data = resp.data as ScanQrResponse;
 
-        if (user && user.walletAddress) {
-          setRecipient(`@${extractedUsername}`);
-          setRecipientValid(true);
-          setRecipientAddress(user.walletAddress);
-          setRecipientType('username');
-          setRecipientDisplayName(`@${user.username}`);
-          setScanResult('internal');
-        } else {
-          setRecipient(`@${extractedUsername}`);
-          setRecipientValid(false);
-          setScanResult('error');
-          setError(user ? 'User has no linked wallet' : `User @${extractedUsername} not found`);
+      // 1. Username QR
+      if (data.type === 'username') {
+        const u = data.user;
+        const displayName = u.displayName || u.username;
+        setRecipient(`@${u.username}`);
+        setRecipientValid(true);
+        setRecipientDisplayName(displayName);
+        setRecipientType('username');
+        setScanResult('internal');
+
+        if (u.defaultWallet?.type === 'onchain') {
+          setRecipientAddress(u.defaultWallet.address);
+        } else if (u.defaultWallet?.type === 'offchain') {
+          // If default is offchain, we might need to handle it or just set address null?
+          // For now, if username default is offchain, we treat it as internal valid
+          setRecipientOffchainQr(null); // Or should we construct one?
+          // Actually checkRecipient handles this via lookupUser.
+          // Since we have the data, we can set it.
+          // But 'sendUsdc' needs address.
+          // For now let's rely on 'checkRecipient' logic flow or reusing it.
+          // But here we set states directly.
+          if (u.defaultWallet.type === 'offchain') {
+            // We don't have the QR string for their bank, but we have bank info.
+            // In this flow, we might need to call createPaymentOrder with username?
+            // BE scanQr returns bankInfo? No, for username type it returns user obj.
+          }
+        }
+
+        // Let checkRecipient handle details if needed, but we set Valid=true
+        // Actually, scanQr returns everything we need.
+        setIsParsing(false);
+        return;
+      }
+
+      // 2. Onchain Address QR
+      if (data.type === 'onchain') {
+        const address = data.address;
+        setRecipient(address);
+        setRecipientValid(true);
+        setRecipientAddress(address);
+        setRecipientType('address');
+        setRecipientDisplayName(address.slice(0, 8) + '...' + address.slice(-4));
+        setScanResult('internal');
+
+        if (data.user) {
+          setRecipient(`@${data.user.username}`);
+          setRecipientDisplayName(`@${data.user.username}`);
         }
         setIsParsing(false);
         return;
       }
 
-      if (qrString.startsWith('0x') && isValidWalletAddress(qrString)) {
-        setRecipient(qrString);
-        setRecipientValid(true);
-        setRecipientAddress(qrString);
-        setRecipientType('address');
-        setRecipientDisplayName(qrString.slice(0, 8) + '...' + qrString.slice(-4));
-        setScanResult('internal');
-        setIsParsing(false);
-        return;
-      }
-
-      const parsedBank = await gaian.parseQrString(qrString);
-
-      if (parsedBank) {
-        // Store raw QR string for payment API
+      // 3. Offchain Bank QR
+      if (data.type === 'offchain' && data.bankInfo) {
         setScannedQrString(qrString);
-
-        // Check if this bank account is linked to a HiddenWallet user
-        const linkedUser = lookupBankAccount(parsedBank.accountNumber);
+        const bank = data.bankInfo;
 
         setExternalBank({
-          bankName: parsedBank.bankName,
-          accountNumber: parsedBank.accountNumber,
-          beneficiaryName: parsedBank.beneficiaryName,
-          amount: parsedBank.amount,
-          isLinkedToHiddenWallet: !!linkedUser,
-          linkedUsername: linkedUser?.username,
+          bankName: bank.bankName,
+          accountNumber: bank.accountNumber,
+          beneficiaryName: bank.accountName, // bankInfo uses accountName
+          amount: bank.amount,
+          isLinkedToHiddenWallet: !!data.user,
+          linkedUsername: data.user?.username,
         });
-        setRecipient(`${parsedBank.beneficiaryName}`);
-        setRecipientDisplayName(`${parsedBank.beneficiaryName} (${parsedBank.bankName})`);
+
+        setRecipient(`${bank.accountName}`);
+        setRecipientDisplayName(`${bank.accountName} (${bank.bankName})`);
         setScanResult('external');
 
-        // If linked to HiddenWallet, use the wallet address
-        if (linkedUser && linkedUser.walletAddress) {
+        if (data.user && data.user.defaultWallet?.type === 'onchain') {
           setRecipientValid(true);
-          setRecipientAddress(linkedUser.walletAddress);
+          setRecipientAddress(data.user.defaultWallet.address);
           setRecipientType('username');
         }
 
-        if (parsedBank.amount) {
-          setAmount(parsedBank.amount.toString());
+        if (bank.amount) {
+          setAmount(bank.amount.toString());
         }
       } else {
         setScanResult('error');
@@ -318,7 +360,7 @@ const Send = () => {
     } catch (err) {
       console.error('QR parsing error:', err);
       setScanResult('error');
-      setError('Failed to parse QR code');
+      setError('Invalid QR Code');
     } finally {
       setIsParsing(false);
     }

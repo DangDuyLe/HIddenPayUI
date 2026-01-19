@@ -30,7 +30,7 @@ const Login = () => {
   const [isInWalletBrowser, setIsInWalletBrowser] = useState(false);
   const [copied, setCopied] = useState(false);
   const [showWalletOptions, setShowWalletOptions] = useState(false);
-const { loginWithWallet, isAuthLoading } = useAuth();
+  const { loginWithWallet, isAuthLoading } = useAuth();
   const [, setAuthError] = useState<string | null>(null);
 
   // Use currentAccount if valid, otherwise fallback to first account if available
