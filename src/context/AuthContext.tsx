@@ -50,6 +50,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(res.data);
   }, []);
 
+  const syncKycStatus = useCallback(async (walletAddress?: string | null) => {
+    const t = localStorage.getItem(TOKEN_STORAGE_KEY);
+    if (!t) return;
+    if (!walletAddress) return;
+
+    try {
+      await getKycStatus(walletAddress);
+    } catch {
+      // ignore KYC sync errors
+    }
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -64,15 +76,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return;
         }
 
-        if (account?.address) {
+        const res = await getProfile();
+
+        const walletAddressForKyc = (() => {
+          const u = res.data as { walletAddress?: unknown; address?: unknown } | null;
+          const addr =
+            typeof u?.walletAddress === 'string' && u.walletAddress.trim()
+              ? u.walletAddress.trim()
+              : typeof u?.address === 'string' && u.address.trim()
+                ? u.address.trim()
+                : null;
+          return addr;
+        })();
+
+        if (walletAddressForKyc) {
           try {
-            await getKycStatus(account.address);
+            await getKycStatus(walletAddressForKyc);
           } catch {
             // ignore KYC sync errors on refresh
           }
         }
-
-        const res = await getProfile();
         if (cancelled) return;
         setToken(t);
         setUser(res.data);
