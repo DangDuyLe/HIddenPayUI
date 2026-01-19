@@ -90,7 +90,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [account?.address]);
 
   const loginWithWallet = useCallback(async (): Promise<{ needsOnboarding: boolean }> => {
     if (!account?.address) {
