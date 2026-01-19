@@ -178,30 +178,31 @@ const Dashboard = () => {
                 {/* Balance Section */}
                 <div className="py-8 text-center animate-slide-up">
                     {/* USDC Balance - Large */}
-                    <div className="flex items-baseline justify-center">
-                        {showBalance ? (
-                            <>
-                                <span className="balance-display">
-                                    ${isLoadingBalance ? '...' : balanceWhole}
-                                </span>
-                                <span className="balance-decimal">
-                                    {isLoadingBalance ? '' : balanceDecimal}
-                                </span>
-
-                            </>
-                        ) : (
-                            <span className="balance-display">$•••••</span>
-                        )}
+                    <div className="relative min-h-[48px] flex items-center justify-center">
+                        <div className="flex items-baseline justify-center">
+                            {showBalance ? (
+                                <>
+                                    <span className="balance-display">
+                                        ${isLoadingBalance ? '...' : balanceWhole}
+                                    </span>
+                                    <span className="balance-decimal">
+                                        {isLoadingBalance ? '' : balanceDecimal}
+                                    </span>
+                                </>
+                            ) : (
+                                <span className="balance-display">$•••••</span>
+                            )}
+                        </div>
                         <button
                             onClick={() => setShowBalance(!showBalance)}
-                            className="ml-2 p-1.5 text-muted-foreground hover:text-foreground transition-colors"
+                            className="absolute right-4 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground hover:text-foreground transition-colors"
                         >
                             {showBalance ? <Eye className="w-5 h-5" /> : <EyeOff className="w-5 h-5" />}
                         </button>
                     </div>
 
                     {/* SUI Balance - Small Gray */}
-                    <p className="text-sm text-muted-foreground mt-1">
+                    <p className="text-sm text-muted-foreground mt-1 min-h-[20px]">
                         {showBalance ? `${suiBalance.toFixed(4)} SUI` : '••• SUI'}
                     </p>
                 </div>
@@ -210,14 +211,14 @@ const Dashboard = () => {
                 <div className="flex justify-center gap-3 animate-slide-up stagger-1">
                     <button
                         onClick={() => navigate('/send')}
-                        className="btn-pill-primary"
+                        className="btn-pill-primary flex-1 max-w-[140px] min-w-[120px]"
                     >
                         <ArrowUpRight className="w-4 h-4" />
                         Send
                     </button>
                     <button
                         onClick={() => navigate('/receive')}
-                        className="btn-pill-secondary"
+                        className="btn-pill-secondary flex-1 max-w-[140px] min-w-[120px]"
                     >
                         <ArrowDownLeft className="w-4 h-4" />
                         Receive
