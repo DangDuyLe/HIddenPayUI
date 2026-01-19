@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useCurrentAccount, useSignPersonalMessage } from '@mysten/dapp-kit';
-import { getChallenge, getProfile, postVerify, WalletChallengeResponseDto } from '@/services/api';
+import { getChallenge, getKycStatus, getProfile, postVerify, WalletChallengeResponseDto } from '@/services/api';
 
 type AuthUser = unknown;
 
@@ -62,6 +62,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setToken(null);
           setUser(null);
           return;
+        }
+
+        if (account?.address) {
+          try {
+            await getKycStatus(account.address);
+          } catch {
+            // ignore KYC sync errors on refresh
+          }
         }
 
         const res = await getProfile();

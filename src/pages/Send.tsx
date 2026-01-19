@@ -5,6 +5,16 @@ import { useWallet } from '@/context/WalletContext';
 import { Scan, Check, AlertTriangle, ChevronDown, Wallet, Building2, Loader2, X, User, AlertCircle, CreditCard, Copy } from 'lucide-react';
 import QRScanner from '@/components/QRScanner';
 import { createPaymentOrder, confirmPaymentOrder, getPaymentOrder, syncPaymentOrder, lookupUser, scanQr } from '@/services/api';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 type SendStep = 'input' | 'review' | 'sending' | 'success' | 'error';
 type ScanResult = 'none' | 'internal' | 'external' | 'error';
@@ -71,6 +81,7 @@ const Send = () => {
   const [externalBank, setExternalBank] = useState<ExternalBankInfo | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [scannedQrString, setScannedQrString] = useState<string | null>(null);
+  const [recipientCountry, setRecipientCountry] = useState<string | null>(null);
   // For username recipients with offchain default wallet
   const [recipientOffchainQr, setRecipientOffchainQr] = useState<string | null>(null);
   // For showing VND equivalent on success screen
@@ -80,6 +91,12 @@ const Send = () => {
     platformFee?: { feePercent: string; feeRate: number; feeAmount: number; baseFiatAmount: number; finalFiatAmount: number; cryptoEquivalent?: number | null };
     paymentInstruction: { totalCrypto: string };
   } | null>(null);
+const [showKycPopup, setShowKycPopup] = useState(false);
+
+  const openKycPopup = (msg?: string) => {
+    if (msg) setError(msg);
+    setShowKycPopup(true);
+  };
 
   useEffect(() => {
     if (!isAuthLoading && !isAuthenticated) {
@@ -90,6 +107,10 @@ const Send = () => {
   const apiUsername = (() => {
     const u = user as { username?: unknown } | null;
     return typeof u?.username === 'string' ? u.username : null;
+  })();
+const kycApproved = (() => {
+    const u = user as { kycStatus?: unknown } | null;
+    return typeof u?.kycStatus === 'string' && u.kycStatus === 'approved';
   })();
 
   if (isAuthLoading) {
@@ -253,6 +274,7 @@ const Send = () => {
       accountName: string;
       amount?: number;
       bankBin?: string;
+      country?: string;
     };
   };
 
@@ -272,6 +294,7 @@ const Send = () => {
     setError('');
     setAmount('');
     setScannedQrString(null);
+    setRecipientCountry(null);
 
     // Now start parsing
     setIsParsing(true);
@@ -345,6 +368,7 @@ const Send = () => {
           isLinkedToHiddenWallet: !!data.user,
           linkedUsername: data.user?.username,
         });
+        setRecipientCountry(bank.country ?? null);
 
         setRecipient(`${bank.accountName}`);
         setRecipientDisplayName(`${bank.accountName} (${bank.bankName})`);
@@ -377,6 +401,14 @@ const Send = () => {
     const qrStringToUse = scannedQrString || recipientOffchainQr;
 
     if ((scanResult === 'external' && externalBank) || qrStringToUse) {
+const isVnRecipient = (recipientCountry ?? '').toUpperCase() === 'VN';
+      if (kycApproved) {
+        if (amountNum < 0.7) { setError('Minimum amount per transaction is $0.7'); return; }
+        if (amountNum > 500) { setError('Maximum amount per transaction is $500'); return; }
+      } else {
+        if (!isVnRecipient) { setError('KYC required for this recipient'); return; }
+        if (amountNum >= 4) { setError('For non-KYC users, max amount per transaction is under $4'); return; }
+      }
       if (isNaN(amountNum) || amountNum <= 0) { setError('Invalid amount'); return; }
       if (amountNum > usdcBalance) { setError('Insufficient balance'); return; }
       if (suiBalance < minGasBalanceSui) { setError('Not enough SUI for gas fees'); return; }
@@ -393,14 +425,21 @@ const Send = () => {
           qrString: qrStringToUse,
           usdcAmount: amountNum,
           payerWalletAddress: payerAddress,
+          recipientCountry: recipientCountry ?? undefined,
         });
 
         const { paymentInstruction, payout, exchangeInfo, platformFee } = orderRes.data;
         setFiatPayoutAmount({ amount: paymentInstruction.totalPayout, currency: payout.fiatCurrency });
         setOfframpQuote({ exchangeInfo: { feeAmount: Number(exchangeInfo.feeAmount) }, platformFee, paymentInstruction: { totalCrypto: paymentInstruction.totalCrypto } });
-      } catch (err) {
+      } catch (err: unknown) {
         console.error('Failed to get quote:', err);
-        setError('Failed to get exchange rate');
+        const message = (err as { response?: { data?: { message?: unknown } } })?.response?.data?.message;
+        const errorMsg = typeof message === 'string' ? message.toLowerCase() : '';
+        if (errorMsg.includes('kyc') || errorMsg.includes('kyc_required') || errorMsg.includes('non_kyc')) {
+          openKycPopup('KYC verification required for this transaction');
+        } else {
+          setError('Failed to get exchange rate');
+        }
         return;
       }
 
@@ -438,6 +477,7 @@ const Send = () => {
           qrString: qrStringToUse,
           usdcAmount: parseFloat(amount), // User enters USDC amount
           payerWalletAddress: payerAddress,
+          recipientCountry: recipientCountry ?? undefined,
         });
 
         const { id: orderId, paymentInstruction, payout, exchangeInfo, platformFee } = orderRes.data;
@@ -621,7 +661,7 @@ const Send = () => {
                   <span className="text-muted-foreground text-sm">Fee</span>
                   <span className="text-sm">
                     {offrampQuote?.platformFee?.cryptoEquivalent != null
-                      ? `$${Number(offrampQuote.platformFee.cryptoEquivalent).toLocaleString()}`
+                      ? `$${Number(offrampQuote.platformFee.cryptoEquivalent).toFixed(4)}`
                       : '-'
                     }
                   </span>
@@ -649,6 +689,21 @@ const Send = () => {
   // Input
   return (
     <>
+      <AlertDialog open={showKycPopup} onOpenChange={setShowKycPopup}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>KYC Required</AlertDialogTitle>
+            <AlertDialogDescription>
+              You need to complete KYC verification to proceed with this transaction. Please go to Settings to start KYC.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => navigate('/settings')}>Go to Settings</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <QRScanner
         isOpen={showScanner}
         onClose={() => {
