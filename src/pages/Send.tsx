@@ -439,7 +439,17 @@ const isVnRecipient = (recipientCountry ?? '').toUpperCase() === 'VN';
         console.error('Failed to get quote:', err);
         const message = (err as { response?: { data?: { message?: unknown } } })?.response?.data?.message;
         const errorMsg = typeof message === 'string' ? message.toLowerCase() : '';
-        if (errorMsg.includes('kyc') || errorMsg.includes('kyc_required') || errorMsg.includes('non_kyc')) {
+        const needsKyc =
+          errorMsg.includes('kyc_required') ||
+          errorMsg.includes('kyc required') ||
+          errorMsg.includes('kyc') ||
+          errorMsg.includes('non_kyc') ||
+          errorMsg.includes('non-kyc') ||
+          errorMsg.includes('min_amount') ||
+          errorMsg.includes('max_amount') ||
+          errorMsg.includes('amount_per');
+
+        if (needsKyc) {
           openKycPopup('KYC verification required for this transaction');
         } else {
           setError('Failed to get exchange rate');
