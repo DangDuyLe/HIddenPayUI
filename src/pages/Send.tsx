@@ -407,7 +407,10 @@ const isVnRecipient = (recipientCountry ?? '').toUpperCase() === 'VN';
         if (amountNum > 500) { setError('Maximum amount per transaction is $500'); return; }
       } else {
         if (!isVnRecipient) { setError('KYC required for this recipient'); return; }
-        if (amountNum >= 4) { setError('For non-KYC users, max amount per transaction is under $4'); return; }
+        if (amountNum >= 4) {
+          openKycPopup('KYC verification required for amounts of $4 or more');
+          return;
+        }
       }
       if (isNaN(amountNum) || amountNum <= 0) { setError('Invalid amount'); return; }
       if (amountNum > usdcBalance) { setError('Insufficient balance'); return; }
