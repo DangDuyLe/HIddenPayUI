@@ -195,12 +195,12 @@ export type CreatePaymentOrderResponseDto = {
     exchangeRate: number;
     feeAmount: number;
   };
-  hiddenWallet?: {
+  platformFee?: {
     feePercent: string;
     feeRate: number;
     feeAmount: number;
-    amountBeforeFee: number;
-    amountWithFee: number;
+    baseFiatAmount: number;
+    finalFiatAmount: number;
   };
   paymentInstruction: PaymentInstructionDto;
   payout: {

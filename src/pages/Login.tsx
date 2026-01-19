@@ -30,7 +30,7 @@ const Login = () => {
   const [isInWalletBrowser, setIsInWalletBrowser] = useState(false);
   const [copied, setCopied] = useState(false);
   const [showWalletOptions, setShowWalletOptions] = useState(false);
-const { loginWithWallet, isAuthLoading } = useAuth();
+  const { loginWithWallet, isAuthLoading } = useAuth();
   const [, setAuthError] = useState<string | null>(null);
 
   // Use currentAccount if valid, otherwise fallback to first account if available
@@ -120,7 +120,7 @@ const { loginWithWallet, isAuthLoading } = useAuth();
               </div>
 
               <button
-                onClick={handleContinueWithWallet}
+                onClick={handleAuthLogin}
                 className="btn-primary flex items-center justify-center gap-2"
               >
                 Continue to App
