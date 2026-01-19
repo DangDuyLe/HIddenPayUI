@@ -704,17 +704,25 @@ const isVnRecipient = (recipientCountry ?? '').toUpperCase() === 'VN';
   return (
     <>
       <AlertDialog open={showKycPopup} onOpenChange={setShowKycPopup}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>KYC Required</AlertDialogTitle>
-            <AlertDialogDescription>
-              You need to complete KYC verification to proceed with this transaction. Please go to Settings to start KYC.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => navigate('/settings')}>Go to Settings</AlertDialogAction>
-          </AlertDialogFooter>
+        <AlertDialogContent className="max-w-[420px] rounded-2xl p-0 overflow-hidden">
+          <div className="p-5 border-b border-border">
+            <AlertDialogHeader className="space-y-2 text-left">
+              <AlertDialogTitle className="text-base font-semibold">KYC Required</AlertDialogTitle>
+              <AlertDialogDescription className="text-sm leading-5">
+                You need to complete KYC verification to proceed. Go to Settings to start KYC and unlock higher limits.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+          </div>
+
+          <div className="p-5">
+            <AlertDialogFooter className="flex flex-row justify-end gap-2">
+              <AlertDialogCancel className="mt-0 rounded-full px-4">Not now</AlertDialogCancel>
+              <AlertDialogAction className="rounded-full px-5" onClick={() => navigate('/settings')}
+              >
+                Start KYC
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </div>
         </AlertDialogContent>
       </AlertDialog>
 
