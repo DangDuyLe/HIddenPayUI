@@ -53,8 +53,13 @@ const Send = () => {
 
   const [step, setStep] = useState<SendStep>('input');
   const [recipient, setRecipient] = useState('');
-  const [amount, setAmount] = useState('');
+  const [amount, setAmount] = useState(''); // USD amount
+  const [amountVnd, setAmountVnd] = useState(''); // VND amount
+  const [amountSource, setAmountSource] = useState<'vnd' | 'usd' | null>(null); // Which input was edited
   const [error, setError] = useState('');
+
+  // Exchange rate: 1 USD = 25,500 VND
+  const EXCHANGE_RATE = 25500;
   const [showScanner, setShowScanner] = useState(false);
   const [isAutoScan, setIsAutoScan] = useState(false);
 
@@ -438,8 +443,13 @@ const Send = () => {
           setRecipientType('username');
         }
 
-        if (bank.amount) {
-          setAmount(bank.amount.toString());
+        if (bank.amount && bank.amount > 0) {
+          // VietQR amounts are in VND - convert to USD
+          const vndAmount = bank.amount;
+          const usdAmount = vndAmount / 25500;
+          setAmountVnd(vndAmount.toString());
+          setAmount(usdAmount.toFixed(2));
+          setAmountSource('vnd');
         }
       } else {
         setScanResult('error');
@@ -942,28 +952,72 @@ const Send = () => {
               </div>
             )}
 
-            {/* Amount */}
-            <div>
-              <div className="flex justify-between items-center mb-2">
+            {/* Amount - Dual Currency Converter */}
+            <div className="space-y-3">
+              <div className="flex justify-between items-center">
                 <label className="text-sm font-medium text-muted-foreground">Amount</label>
                 <span className="text-sm text-muted-foreground">Balance: ${usdcBalance.toFixed(2)}</span>
               </div>
-              <input
-                type="number"
-                value={amount}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  // Prevent negative values
-                  if (value === '' || parseFloat(value) >= 0) {
-                    setAmount(value);
-                  }
-                  setError('');
-                }}
-                step="0.001"
-                min="0"
-                placeholder="0.00"
-                className="input-modern text-xl font-semibold"
-              />
+
+              {/* VND Input */}
+              <div className="relative">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={amountVnd ? Number(amountVnd.replace(/,/g, '')).toLocaleString('en-US') : ''}
+                  onChange={(e) => {
+                    // Remove non-numeric chars except comma
+                    const raw = e.target.value.replace(/[^0-9]/g, '');
+                    if (raw === '') {
+                      setAmountVnd('');
+                      setAmount('');
+                      setAmountSource(null);
+                    } else {
+                      const vndNum = parseInt(raw, 10);
+                      setAmountVnd(raw);
+                      // Convert to USD
+                      const usdNum = vndNum / EXCHANGE_RATE;
+                      setAmount(usdNum.toFixed(2));
+                      setAmountSource('vnd');
+                    }
+                    setError('');
+                  }}
+                  placeholder="0"
+                  className="input-modern text-lg font-semibold pr-12"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">₫</span>
+              </div>
+
+              {/* Swap indicator */}
+              <div className="flex items-center justify-center text-muted-foreground text-sm">
+                <span>≈ 1 USDC = {EXCHANGE_RATE.toLocaleString()} ₫</span>
+              </div>
+
+              {/* USD Input */}
+              <div className="relative">
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={amount}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    // Allow decimal numbers
+                    if (value === '' || /^\d*\.?\d*$/.test(value)) {
+                      setAmount(value);
+                      // Convert to VND
+                      const usdNum = parseFloat(value) || 0;
+                      const vndNum = Math.round(usdNum * EXCHANGE_RATE);
+                      setAmountVnd(vndNum > 0 ? vndNum.toString() : '');
+                      setAmountSource('usd');
+                    }
+                    setError('');
+                  }}
+                  step="0.01"
+                  placeholder="0.00"
+                  className="input-modern text-lg font-semibold pr-16"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">USDC</span>
+              </div>
             </div>
 
             {/* Error */}
