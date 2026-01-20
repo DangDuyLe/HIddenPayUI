@@ -149,10 +149,10 @@ const Dashboard = () => {
                     <div className="flex items-center gap-2">
                         <button
                             onClick={() => navigate('/settings')}
-                            className="p-2.5 bg-secondary hover:bg-secondary/80 rounded-full transition-colors"
+                            className="w-10 h-10 bg-secondary hover:bg-secondary/80 rounded-full transition-colors flex items-center justify-center"
                             title="Settings"
                         >
-                            <Settings className="w-5 h-5 text-muted-foreground" />
+                            <span className="text-sm font-semibold">{username ? username[0].toUpperCase() : '?'}</span>
                         </button>
                         <button
                             onClick={copyUsername}
@@ -229,13 +229,6 @@ const Dashboard = () => {
                 <div className="mt-6 animate-slide-up stagger-2">
                     <div className="flex justify-between items-center mb-3">
                         <h3 className="section-title mb-0">Affiliate Performance</h3>
-                        <button
-                            onClick={() => navigate('/leaderboard')}
-                            className="text-sm font-medium text-primary hover:text-primary/80 transition-colors flex items-center gap-1"
-                        >
-                            <Trophy className="w-3.5 h-3.5" />
-                            Leaderboard
-                        </button>
                     </div>
                     <div className="card-modern">
                         <div className="grid grid-cols-3 gap-4 text-center">
@@ -264,9 +257,40 @@ const Dashboard = () => {
                                     <Users className="w-4 h-4 text-success" />
                                 </div>
                                 <p className="relative text-lg font-bold">{referralStats.f0Count}</p>
-                                <p className="relative text-xs text-muted-foreground">Friends</p>
+                                <p className="relative text-xs text-muted-foreground flex items-center justify-center gap-0.5">
+                                    Friends <span className="text-primary">→</span>
+                                </p>
                             </div>
                         </div>
+
+                        {/* How to Earn Points */}
+                        <details className="mt-4 pt-4 border-t border-border">
+                            <summary className="text-sm font-medium cursor-pointer hover:text-primary transition-colors">
+                                💡 How to Earn Points
+                            </summary>
+                            <div className="mt-3 space-y-3 text-sm">
+                                <div>
+                                    <p className="font-medium text-muted-foreground">Transaction Frequency</p>
+                                    <ul className="mt-1 space-y-1 text-muted-foreground">
+                                        <li>• 3+ txns/day → <span className="text-success font-medium">+50 pts</span></li>
+                                        <li>• 15+ txns/week → <span className="text-success font-medium">+100 pts</span></li>
+                                        <li>• 50+ txns/month → <span className="text-success font-medium">+300 pts</span></li>
+                                    </ul>
+                                </div>
+                                <div>
+                                    <p className="font-medium text-muted-foreground">Transaction Volume</p>
+                                    <ul className="mt-1 space-y-1 text-muted-foreground">
+                                        <li>• Over $50 per txn → <span className="text-success font-medium">+10 pts</span></li>
+                                    </ul>
+                                </div>
+                                <div>
+                                    <p className="font-medium text-muted-foreground">Referrals</p>
+                                    <ul className="mt-1 space-y-1 text-muted-foreground">
+                                        <li>• Earn points for each successful referral</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </details>
                     </div>
                 </div>
 
