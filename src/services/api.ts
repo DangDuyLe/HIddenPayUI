@@ -145,6 +145,8 @@ export type PaymentMethodDefaultResponseDto = {
   walletType: 'onchain' | 'offchain' | null;
   address?: string; // For onchain wallets
   accountNumber?: string; // For offchain banks
+  bankName?: string; // For offchain banks
+  accountName?: string; // For offchain banks
 };
 
 export const listOnchainWallets = async () => {
