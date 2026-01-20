@@ -73,6 +73,21 @@ const Send = () => {
   // For username recipients with offchain default wallet
   const [recipientOffchainQr, setRecipientOffchainQr] = useState<string | null>(null);
 
+  // Invoice data for success screen
+  interface InvoiceData {
+    orderId: string;
+    timestamp: Date;
+    fiatAmount: number;
+    fiatCurrency: string;
+    usdcAmount: string;
+    fee: number;
+    bankName: string;
+    accountNumber: string;
+    recipientName: string;
+  }
+  const [invoiceData, setInvoiceData] = useState<InvoiceData | null>(null);
+
+
   // Auto-open scanner if navigated from mobile nav
   const fetchRate = useCallback(async (country?: string | null) => {
     setIsFetchingRate(true);
@@ -124,7 +139,7 @@ const Send = () => {
       window.clearInterval(intervalId);
     };
   }, [fetchRate, recipientCountry, scanResult]);
-useEffect(() => {
+  useEffect(() => {
     // Poll $1 recipient-gets quote every 10s on Send screen
     // Default to VN until scan provides a specific country
     const intervalId = window.setInterval(() => {
@@ -645,6 +660,19 @@ useEffect(() => {
         try {
           console.log('Confirming payment order:', { orderId, digest: result.digest });
           await confirmPaymentOrder(orderId, result.digest);
+
+          // Store invoice data for success screen
+          setInvoiceData({
+            orderId,
+            timestamp: new Date(),
+            fiatAmount: totalPayout,
+            fiatCurrency: payout.fiatCurrency,
+            usdcAmount: amount,
+            fee: platformFee?.feeAmount || 0,
+            bankName: externalBank.bankName,
+            accountNumber: externalBank.accountNumber,
+            recipientName: externalBank.beneficiaryName,
+          });
         } catch (confirmError) {
           console.error('Failed to confirm payment order:', confirmError);
           // Transaction succeeded but confirmation failed
@@ -730,6 +758,96 @@ useEffect(() => {
 
   // Success
   if (step === 'success') {
+    const formatTime = (date: Date) => {
+      return date.toLocaleString('en-GB', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    };
+
+    const handleShareInvoice = async () => {
+      const text = invoiceData
+        ? `✅ Transfer Successful\n\n${invoiceData.fiatAmount.toLocaleString()} ${invoiceData.fiatCurrency}\n\nFrom: @${username}\nTo: ${invoiceData.recipientName}\nBank: ${invoiceData.bankName}\nAccount: ${invoiceData.accountNumber}\n\nSent: ${formatTime(invoiceData.timestamp)}\nFee: ${invoiceData.fee.toLocaleString()} ${invoiceData.fiatCurrency}\nOrder: ${invoiceData.orderId.slice(0, 8)}...`
+        : `Sent ${amount} USDC to ${recipientDisplayName || recipient}`;
+
+      if (navigator.share) {
+        try {
+          await navigator.share({ text });
+        } catch { /* cancelled */ }
+      } else {
+        navigator.clipboard.writeText(text);
+      }
+    };
+
+    // Bank transfer invoice
+    if (invoiceData) {
+      return (
+        <div className="app-container">
+          <div className="page-wrapper">
+            {/* Success Header */}
+            <div className="text-center mb-6 animate-fade-in">
+              <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center bg-success/10 rounded-full">
+                <Check className="w-8 h-8 text-success" />
+              </div>
+              <p className="text-lg font-semibold text-success">Transfer Successful!</p>
+              <p className="text-3xl font-bold mt-2">
+                {invoiceData.fiatAmount.toLocaleString()} {invoiceData.fiatCurrency}
+              </p>
+            </div>
+
+            {/* Invoice Details */}
+            <div className="card-modern divide-y divide-border animate-slide-up">
+              <div className="flex justify-between items-center py-3">
+                <span className="text-muted-foreground text-sm">From</span>
+                <span className="font-medium">@{username}</span>
+              </div>
+              <div className="flex justify-between items-start py-3">
+                <span className="text-muted-foreground text-sm">To</span>
+                <div className="text-right">
+                  <p className="font-medium">{invoiceData.recipientName}</p>
+                  <p className="text-sm text-muted-foreground">{invoiceData.bankName}</p>
+                  <p className="text-sm font-mono text-muted-foreground">{invoiceData.accountNumber}</p>
+                </div>
+              </div>
+              <div className="flex justify-between items-center py-3">
+                <span className="text-muted-foreground text-sm">Sent at</span>
+                <span className="font-medium text-sm">{formatTime(invoiceData.timestamp)}</span>
+              </div>
+              <div className="flex justify-between items-center py-3">
+                <span className="text-muted-foreground text-sm">Fee</span>
+                <span className="text-sm">
+                  {invoiceData.fee > 0 ? `${invoiceData.fee.toLocaleString()} ${invoiceData.fiatCurrency}` : 'Free'}
+                </span>
+              </div>
+              <div className="flex justify-between items-center py-3">
+                <span className="text-muted-foreground text-sm">Order ID</span>
+                <span className="font-mono text-sm text-muted-foreground">
+                  {invoiceData.orderId.slice(0, 8)}...
+                </span>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3 mt-6 animate-slide-up">
+              <button
+                onClick={handleShareInvoice}
+                className="flex-1 py-4 rounded-xl border border-border hover:bg-secondary/50 transition-colors font-medium"
+              >
+                Share
+              </button>
+              <button onClick={() => navigate('/dashboard')} className="flex-1 btn-primary">
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Simple success for crypto transfers
     return (
       <div className="app-container">
         <div className="page-wrapper justify-center items-center text-center">
@@ -1051,11 +1169,6 @@ useEffect(() => {
                   className="input-modern text-lg font-semibold pr-12"
                 />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">₫</span>
-              </div>
-
-              {/* Swap indicator */}
-              <div className="flex items-center justify-center text-muted-foreground text-sm">
-                <span>$1 ≈ {exchangeRate.toLocaleString()} ₫</span>
               </div>
 
               {/* USD Input */}

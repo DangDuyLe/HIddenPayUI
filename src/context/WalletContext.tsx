@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, ReactNode, useEffect, useCallback, useRef } from 'react';
 import { useSignAndExecuteTransaction, useSuiClient, useCurrentAccount } from '@mysten/dapp-kit';
 import { Transaction } from '@mysten/sui/transactions';
 
@@ -16,6 +16,15 @@ interface TransactionRecord {
   timestamp: Date;
   token: 'SUI' | 'USDC';
   digest?: string; // Transaction hash
+}
+
+export interface CoinBalance {
+  coinType: string;
+  totalBalance: number; // Normalized (raw / 10^decimals)
+  rawBalance: string;
+  symbol: string;
+  decimals: number;
+  iconUrl?: string | null;
 }
 
 interface ReferralStats {
@@ -90,6 +99,7 @@ interface WalletState {
   isProfileLoading: boolean;
   rewardPoints: number;
   referralStats: ReferralStats;
+  coins: CoinBalance[];
 }
 
 type WalletContextType = WalletState & {
@@ -107,7 +117,7 @@ type WalletContextType = WalletState & {
   lookupBankAccount: (accountNumber: string) => HiddenWalletUser | null;
   lookupUsername: (username: string) => HiddenWalletUser | null;
   getDefaultAccount: () => { id: string; type: DefaultAccountType; name: string } | null;
-  refreshBalance: () => Promise<void>;
+  refreshBalance: (address?: string) => Promise<void>;
   isValidWalletAddress: (address: string) => boolean;
 };
 
@@ -138,9 +148,14 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     kycStatus: 'unverified',
     isLoadingBalance: false,
     isProfileLoading: false,
+
     rewardPoints: 0,
     referralStats: { totalCommission: 0, f0Volume: 0, f0Count: 0 },
+    coins: [],
   });
+
+  const stateRef = useRef(state);
+  stateRef.current = state;
 
   // Fetch REAL balances and transactions from blockchain
   // Fetch real transaction history from blockchain
@@ -269,38 +284,121 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   }, [suiClient]);
 
   // Fetch REAL balances and transactions from blockchain
-  const refreshBalance = useCallback(async () => {
-    if (!currentAccount?.address) return;
+  const refreshBalance = useCallback(async (forcedAddress?: string) => {
+    // Determine the address to check:
+    // 1. Explicitly passed address
+    // 2. Default Wallet (if set and is a wallet type)
+    // 3. Currently connected wallet
+    let targetAddress = forcedAddress;
+
+    if (!targetAddress) {
+      const currentState = stateRef.current;
+      const currentAddress = currentAccount?.address;
+
+      if (currentState.defaultAccountType === 'wallet' && currentState.defaultAccountId) {
+        const defaultWallet = currentState.linkedWallets.find(w => w.id === currentState.defaultAccountId);
+        if (defaultWallet) {
+          targetAddress = defaultWallet.address;
+        }
+      }
+
+      // Fallback to connected account if default is not a wallet or not found
+      if (!targetAddress) {
+        targetAddress = currentAddress;
+      }
+    }
+
+    if (!targetAddress) return;
 
     setState(prev => ({ ...prev, isLoadingBalance: true }));
 
     try {
-      // Get SUI balance (for gas fees)
-      const suiBalanceResult = await suiClient.getBalance({
-        owner: currentAccount.address,
+      // 1. Get ALL balances
+      const allBalances = await suiClient.getAllBalances({
+        owner: targetAddress,
       });
-      // SUI has 9 decimals
-      const suiBalance = Number(suiBalanceResult.totalBalance) / 1_000_000_000;
 
-      // Get USDC balance
-      const usdcBalanceResult = await suiClient.getBalance({
-        owner: currentAccount.address,
-        coinType: USDC_COIN_TYPE,
+      // 2. Process coins - skip zero balances first
+      const nonZeroCoins = allBalances.filter(c => Number(c.totalBalance) > 0);
+
+      // 3. Fetch metadata in PARALLEL (much faster than sequential)
+      const coinDataPromises = nonZeroCoins.map(async (coin) => {
+        let decimals = 9;
+        let symbol = 'UNKNOWN';
+        let iconUrl: string | null = null;
+
+        // Skip API call for known coins (instant)
+        if (coin.coinType.includes('::sui::SUI')) {
+          decimals = 9;
+          symbol = 'SUI';
+          iconUrl = 'https://cryptologos.cc/logos/sui-sui-logo.png';
+        } else if (coin.coinType.includes('::usdc::USDC') || coin.coinType === USDC_COIN_TYPE) {
+          decimals = USDC_DECIMALS;
+          symbol = 'USDC';
+          iconUrl = 'https://cryptologos.cc/logos/usd-coin-usdc-logo.png';
+        } else {
+          // Only fetch metadata for unknown coins
+          try {
+            const metadata = await suiClient.getCoinMetadata({ coinType: coin.coinType });
+            if (metadata) {
+              decimals = metadata.decimals;
+              symbol = metadata.symbol;
+              iconUrl = metadata.iconUrl || null;
+            }
+          } catch (e) {
+            console.warn(`Failed to fetch metadata for ${coin.coinType}`, e);
+          }
+        }
+
+        const normalizedBalance = Number(coin.totalBalance) / Math.pow(10, decimals);
+
+        return {
+          coinType: coin.coinType,
+          totalBalance: normalizedBalance,
+          rawBalance: coin.totalBalance,
+          symbol,
+          decimals,
+          iconUrl,
+        } as CoinBalance;
       });
-      // USDC - divide by 10^USDC_DECIMALS
-      const usdcBalance = Number(usdcBalanceResult.totalBalance) / Math.pow(10, USDC_DECIMALS);
 
-      // Fetch recent transactions
-      const txHistory = await fetchTransactions(currentAccount.address);
+      // Wait for all metadata fetches in parallel
+      const coinList = await Promise.all(coinDataPromises);
 
+      // Calculate legacy fields
+      let newSuiBalance = 0;
+      let newUsdcBalance = 0;
+      for (const coin of coinList) {
+        if (coin.coinType.endsWith('::sui::SUI')) {
+          newSuiBalance = coin.totalBalance;
+        } else if (coin.coinType.includes(USDC_COIN_TYPE) || coin.symbol === 'USDC') {
+          newUsdcBalance = coin.totalBalance;
+        }
+      }
+
+      // Sort coins: USDC first, then SUI, then others by balance value
+      coinList.sort((a, b) => {
+        if (a.symbol === 'USDC') return -1;
+        if (b.symbol === 'USDC') return 1;
+        if (a.symbol === 'SUI') return -1;
+        if (b.symbol === 'SUI') return 1;
+        return b.totalBalance - a.totalBalance;
+      });
+
+      // Update balance immediately (don't wait for transactions)
       setState(prev => ({
         ...prev,
-        suiBalance,
-        usdcBalance,
-        balanceVnd: usdcBalance * USDC_TO_VND_RATE,
-        transactions: txHistory,
+        suiBalance: newSuiBalance,
+        usdcBalance: newUsdcBalance,
+        coins: coinList,
+        balanceVnd: newUsdcBalance * USDC_TO_VND_RATE,
         isLoadingBalance: false,
       }));
+
+      // Fetch transactions in background (non-blocking)
+      fetchTransactions(targetAddress).then(txHistory => {
+        setState(prev => ({ ...prev, transactions: txHistory }));
+      }).catch(err => console.warn('Failed to fetch transactions:', err));
     } catch (error) {
       console.error('Failed to fetch balance:', error);
       setState(prev => ({ ...prev, isLoadingBalance: false }));
@@ -311,10 +409,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   // Auto-refresh balance when account connects or changes
   useEffect(() => {
-    if (currentAccount?.address) {
-      refreshBalance();
-    }
-  }, [currentAccount?.address, refreshBalance]);
+    refreshBalance();
+  }, [currentAccount?.address, refreshBalance, state.defaultAccountId, state.defaultAccountType, state.linkedWallets]);
 
   // Hydrate profile is handled by AuthContext/ProtectedRoute.
   useEffect(() => {
@@ -452,6 +548,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       isProfileLoading: false,
       rewardPoints: 1250,
       referralStats: { totalCommission: 15.5, f0Volume: 50000, f0Count: 12 },
+      coins: [],
     });
   };
 

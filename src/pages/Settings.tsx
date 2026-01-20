@@ -53,11 +53,12 @@ const Settings = () => {
   const { mutate: disconnectSuiWallet } = useDisconnectWallet();
   const currentAccount = useCurrentAccount();
   const { currentWallet } = useCurrentWallet();
-  const { username, disconnect } = useWallet();
+  const { username, disconnect, coins, isLoadingBalance, refreshBalance } = useWallet();
 
   const [linkedBanks, setLinkedBanks] = useState<ApiBank[]>([]);
   const [linkedWallets, setLinkedWallets] = useState<ApiWallet[]>([]);
   const [defaultAccountId, setDefaultAccountId] = useState<string | null>(null);
+  const [showAllCoins, setShowAllCoins] = useState(false);
   const [defaultAccountType, setDefaultAccountType] = useState<'wallet' | 'bank'>('wallet');
   // Get kycStatus directly from user profile - no flicker
   const kycStatus = (() => {
@@ -155,10 +156,21 @@ const Settings = () => {
       const defaultWalletType = defaultRes.data?.walletType ?? null;
       if (defaultWalletId && defaultWalletType) {
         setDefaultAccountId(defaultWalletId);
-        setDefaultAccountType(defaultWalletType === 'onchain' ? 'wallet' : 'bank');
+        const accountType = defaultWalletType === 'onchain' ? 'wallet' : 'bank';
+        setDefaultAccountType(accountType);
+
+        // Refresh balance with the correct wallet address
+        if (accountType === 'wallet') {
+          const targetWallet = (walletsList as ApiWallet[]).find(w => w.walletId === defaultWalletId);
+          if (targetWallet) {
+            refreshBalance(targetWallet.address);
+          }
+        }
       } else {
         setDefaultAccountId(null);
         setDefaultAccountType('wallet');
+        // Refresh with connected wallet (default behavior)
+        refreshBalance();
       }
       // KYC status is now read directly from user object - no API call needed
     } catch (e) {
@@ -335,7 +347,18 @@ const Settings = () => {
         walletType: type === 'wallet' ? 'onchain' : 'offchain',
       });
       await refreshSettings();
-      await refreshSettings();
+
+      // Immediately refresh balance with the correct address
+      if (type === 'wallet' && address) {
+        refreshBalance(address);
+      } else if (type === 'wallet') {
+        // Find the wallet address from linkedWallets
+        const targetWallet = linkedWallets.find(w => w.walletId === walletId);
+        if (targetWallet) {
+          refreshBalance(targetWallet.address);
+        }
+      }
+      // For bank type, don't refresh balance (banks don't have crypto)
     } catch (e: any) {
       // Handle 409 Conflict (Wallet already exists)
       if (e.response?.status === 409 && address) {
@@ -352,6 +375,7 @@ const Settings = () => {
               walletType: 'onchain',
             });
             await refreshSettings();
+            refreshBalance(address); // Refresh with the correct wallet address
             return; // Success
           } else {
             // Wallet exists but not in our list -> belongs to another user
@@ -705,6 +729,7 @@ const Settings = () => {
             <p className="display-medium">@{apiUsername ?? username ?? ''}</p>
           </div>
 
+
           {/* Wallets */}
           <div className="mb-6 animate-slide-up stagger-1">
             <p className="section-title">Sui Wallets</p>
@@ -717,56 +742,93 @@ const Settings = () => {
                 displayWallets.map((wallet) => {
                   const isActiveWallet = currentAccount?.address?.toLowerCase() === wallet.address.toLowerCase();
                   const isTemporary = wallet.walletId === 'current-session';
+                  const isDefaultWallet = isDefault(wallet.walletId, 'wallet') || (!isLoadingSettings && displayWallets.length === 1 && linkedBanks.length === 0 && !defaultAccountId);
 
                   return (
-                    <div key={wallet.walletId} className="row-item px-4">
-                      <div className="flex items-center gap-3">
-                        <Wallet className="w-5 h-5" />
-                        <div>
-                          <p className="font-medium">{wallet.label || 'Wallet'}</p>
-                          <p className="text-sm text-muted-foreground font-mono">
-                            {wallet.address.slice(0, 8)}...{wallet.address.slice(-4)}
-                          </p>
+                    <div key={wallet.walletId} className="border-b border-border last:border-b-0">
+                      <div className="row-item px-4">
+                        <div className="flex items-center gap-3">
+                          <Wallet className="w-5 h-5" />
+                          <div>
+                            <p className="font-medium">{wallet.label || 'Wallet'}</p>
+                            <p className="text-sm text-muted-foreground font-mono">
+                              {wallet.address.slice(0, 8)}...{wallet.address.slice(-4)}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(wallet.address);
+                              setCopiedWalletId(wallet.walletId);
+                              setTimeout(() => setCopiedWalletId(null), 2000);
+                            }}
+                            className="p-2 hover:bg-secondary rounded-full transition-colors"
+                            title="Copy Address"
+                          >
+                            {copiedWalletId === wallet.walletId ? (
+                              <Check className="w-4 h-4 text-success" />
+                            ) : (
+                              <Copy className="w-4 h-4 text-muted-foreground" />
+                            )}
+                          </button>
+                          <div className="h-4 w-px bg-border mx-1" />
+
+                          {isDefaultWallet ? (
+                            <span className="tag-success">Default</span>
+                          ) : (
+                            <button
+                              onClick={() => handleSetDefault(wallet.walletId, 'wallet', wallet.address)}
+                              className="text-xs font-medium text-muted-foreground hover:text-primary px-3 py-1.5 rounded-full hover:bg-secondary transition-colors"
+                            >
+                              Set Default
+                            </button>
+                          )}
+                          {!isActiveWallet && displayWallets.length > 1 && !isTemporary && (
+                            <button
+                              onClick={() => handleRemoveWallet(wallet.walletId)}
+                              className="p-2 hover:bg-destructive/10 transition-colors"
+                              title="Remove"
+                            >
+                              <Trash2 className="w-4 h-4 text-destructive" />
+                            </button>
+                          )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => {
-                            navigator.clipboard.writeText(wallet.address);
-                            setCopiedWalletId(wallet.walletId);
-                            setTimeout(() => setCopiedWalletId(null), 2000);
-                          }}
-                          className="p-2 hover:bg-secondary rounded-full transition-colors"
-                          title="Copy Address"
-                        >
-                          {copiedWalletId === wallet.walletId ? (
-                            <Check className="w-4 h-4 text-success" />
-                          ) : (
-                            <Copy className="w-4 h-4 text-muted-foreground" />
-                          )}
-                        </button>
-                        <div className="h-4 w-px bg-border mx-1" />
 
-                        {isDefault(wallet.walletId, 'wallet') || (!isLoadingSettings && displayWallets.length === 1 && linkedBanks.length === 0 && !defaultAccountId) ? (
-                          <span className="tag-success">Default</span>
-                        ) : (
-                          <button
-                            onClick={() => handleSetDefault(wallet.walletId, 'wallet', wallet.address)}
-                            className="text-xs font-medium text-muted-foreground hover:text-primary px-3 py-1.5 rounded-full hover:bg-secondary transition-colors"
-                          >
-                            Set Default
-                          </button>
-                        )}
-                        {!isActiveWallet && displayWallets.length > 1 && !isTemporary && (
-                          <button
-                            onClick={() => handleRemoveWallet(wallet.walletId)}
-                            className="p-2 hover:bg-destructive/10 transition-colors"
-                            title="Remove"
-                          >
-                            <Trash2 className="w-4 h-4 text-destructive" />
-                          </button>
-                        )}
-                      </div>
+                      {/* Inline balance for default wallet */}
+                      {isDefaultWallet && defaultAccountType !== 'bank' && (
+                        <div className="px-4 pb-3 pt-1 bg-secondary/30">
+                          {isLoadingBalance ? (
+                            <p className="text-xs text-muted-foreground">Loading balance...</p>
+                          ) : coins.length === 0 ? (
+                            <p className="text-xs text-muted-foreground">No coins</p>
+                          ) : (
+                            <div className="flex flex-wrap gap-2">
+                              {(showAllCoins ? coins : coins.slice(0, 3)).map((coin) => (
+                                <div key={coin.coinType} className="flex items-center gap-1.5 bg-background rounded-full px-2 py-1 text-xs">
+                                  {coin.iconUrl ? (
+                                    <img src={coin.iconUrl} alt={coin.symbol} className="w-4 h-4 rounded-full" />
+                                  ) : (
+                                    <span className="w-4 h-4 rounded-full bg-secondary flex items-center justify-center text-[10px] font-bold">{coin.symbol[0]}</span>
+                                  )}
+                                  <span className="font-medium">
+                                    {coin.totalBalance.toLocaleString(undefined, { maximumFractionDigits: 2 })} {coin.symbol}
+                                  </span>
+                                </div>
+                              ))}
+                              {coins.length > 3 && (
+                                <button
+                                  onClick={() => setShowAllCoins(!showAllCoins)}
+                                  className="text-xs text-muted-foreground hover:text-primary"
+                                >
+                                  {showAllCoins ? 'Less' : `+${coins.length - 3} more`}
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   );
                 })
