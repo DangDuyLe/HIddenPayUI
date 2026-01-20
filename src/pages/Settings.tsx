@@ -59,7 +59,15 @@ const Settings = () => {
   const [linkedWallets, setLinkedWallets] = useState<ApiWallet[]>([]);
   const [defaultAccountId, setDefaultAccountId] = useState<string | null>(null);
   const [defaultAccountType, setDefaultAccountType] = useState<'wallet' | 'bank'>('wallet');
-  const [kycStatus, setKycStatus] = useState<'unverified' | 'pending' | 'verified'>('unverified');
+  // Get kycStatus directly from user profile - no flicker
+  const kycStatus = (() => {
+    const u = user as { kycStatus?: unknown } | null;
+    const status = typeof u?.kycStatus === 'string' ? u.kycStatus : 'unverified';
+    // Map 'approved' to 'verified'
+    if (status === 'approved') return 'verified';
+    if (status === 'pending' || status === 'verified') return status;
+    return 'unverified';
+  })() as 'unverified' | 'pending' | 'verified';
   const [isLoadingSettings, setIsLoadingSettings] = useState(true);
   const [settingsError, setSettingsError] = useState<string>('');
 
@@ -152,16 +160,7 @@ const Settings = () => {
         setDefaultAccountId(null);
         setDefaultAccountType('wallet');
       }
-
-      if (walletAddressForKyc) {
-        const kycRes = await getKycStatus(walletAddressForKyc);
-        const status = kycRes.data?.status;
-        if (status === 'pending' || status === 'verified' || status === 'unverified') {
-          setKycStatus(status);
-        } else {
-          setKycStatus('unverified');
-        }
-      }
+      // KYC status is now read directly from user object - no API call needed
     } catch (e) {
       console.error('Failed to load settings', e);
       setSettingsError('Failed to load settings');
@@ -397,7 +396,7 @@ const Settings = () => {
         // Open in-app browser instead of new tab
         setKycUrl(url);
         setShowKycModal(true);
-        setKycStatus('pending');
+        // KYC status will update when user refreshes/re-fetches profile
       } else {
         setSettingsError('Failed to get KYC link');
       }
@@ -834,29 +833,35 @@ const Settings = () => {
             </div>
           </div>
 
-          {/* KYC */}
-          <div className="mb-6 animate-slide-up stagger-3">
-            <p className="section-title">Identity</p>
-            <div className="rounded-xl border border-border p-4">
-              <div className="flex justify-between items-center">
-                <div className="flex items-center gap-3">
-                  <Shield className="w-5 h-5" />
-                  <div>
-                    <p className="font-medium">KYC Verification</p>
-                    <p className="text-sm text-muted-foreground">Verify for higher limits</p>
+          {/* KYC - Hide completely if verified */}
+          {kycStatus !== 'verified' && (
+            <div className="mb-6 animate-slide-up stagger-3">
+              <p className="section-title">Identity</p>
+              <div className="rounded-xl border border-border p-4">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-3">
+                    <Shield className="w-5 h-5" />
+                    <div>
+                      <p className="font-medium">KYC Verification</p>
+                      <p className="text-sm text-muted-foreground">Verify for higher limits</p>
+                    </div>
                   </div>
+                  {kycStatus === 'pending' ? (
+                    <span className="tag-warning">Pending</span>
+                  ) : (
+                    <span className="tag">Unverified</span>
+                  )}
                 </div>
-                <span className="tag">Unverified</span>
+                <button
+                  onClick={handleStartKyc}
+                  disabled={isLoadingSettings || !walletAddressForKyc || kycStatus === 'pending'}
+                  className="w-full py-3 mt-4 border border-border hover:bg-accent transition-colors"
+                >
+                  {kycStatus === 'pending' ? 'Verification in Progress' : 'Start KYC'}
+                </button>
               </div>
-              <button
-                onClick={handleStartKyc}
-                disabled={isLoadingSettings || !walletAddressForKyc}
-                className="w-full py-3 mt-4 border border-border hover:bg-accent transition-colors"
-              >
-                Start KYC
-              </button>
             </div>
-          </div>
+          )}
 
 
 

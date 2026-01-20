@@ -2,8 +2,9 @@ import { useNavigate } from 'react-router-dom';
 import { useWallet } from '@/context/WalletContext';
 import { useAuth } from '@/context/AuthContext';
 import { useState, useEffect } from 'react';
-import { Copy, Check, X } from 'lucide-react';
+import { Copy, Check, X, Share2 } from 'lucide-react';
 import { getDefaultPaymentMethod } from '@/services/api';
+import { toast } from 'sonner';
 
 // VietQR Bank BIN mapping - map bankName to bank BIN code
 // Source: https://api.vietqr.io/v2/banks
@@ -52,9 +53,7 @@ const BANK_BIN_MAP: Record<string, string> = {
 
 interface DefaultWalletInfo {
   type: 'onchain' | 'offchain';
-  // For onchain
   address?: string;
-  // For offchain (bank)
   bankName?: string;
   accountNumber?: string;
   accountName?: string;
@@ -70,15 +69,10 @@ const Receive = () => {
     return typeof u?.username === 'string' ? u.username : walletUsername;
   })();
 
-  const [copiedUsername, setCopiedUsername] = useState(false);
-  const [copiedAddress, setCopiedAddress] = useState(false);
-  const [copiedAccountNumber, setCopiedAccountNumber] = useState(false);
-
-  // Default wallet info from API
+  const [copiedField, setCopiedField] = useState<string | null>(null);
   const [defaultWallet, setDefaultWallet] = useState<DefaultWalletInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch default payment method on mount
   useEffect(() => {
     const fetchDefault = async () => {
       try {
@@ -107,63 +101,50 @@ const Receive = () => {
     fetchDefault();
   }, []);
 
-  if (!isConnected) {
+  const copyToClipboard = (text: string, field: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedField(field);
+    toast.success('Copied!');
+    setTimeout(() => setCopiedField(null), 2000);
+  };
+
+  const handleShare = async () => {
+    const shareText = defaultWallet?.type === 'offchain'
+      ? `Pay me via bank transfer:\n${defaultWallet.bankName}\nAccount: ${defaultWallet.accountNumber}\nName: ${defaultWallet.accountName}`
+      : `Send me crypto:\nUsername: @${username}\nAddress: ${defaultWallet?.address}`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ text: shareText });
+      } catch {
+        copyToClipboard(shareText, 'share');
+      }
+    } else {
+      copyToClipboard(shareText, 'share');
+    }
+  };
+
+  if (!isConnected || !username) {
     return (
       <div className="app-container">
         <div className="page-wrapper">
-          <div className="card-modern py-8 text-center text-muted-foreground text-sm">Wallet not connected.</div>
+          <div className="card-modern py-8 text-center text-muted-foreground text-sm">
+            {!isConnected ? 'Wallet not connected.' : 'Loading profile...'}
+          </div>
         </div>
       </div>
     );
   }
-
-  if (!username) {
-    return (
-      <div className="app-container">
-        <div className="page-wrapper">
-          <div className="card-modern py-8 text-center text-muted-foreground text-sm">Loading profile...</div>
-        </div>
-      </div>
-    );
-  }
-
-  const handleCopyUsername = () => {
-    navigator.clipboard.writeText(`@${username}`);
-    setCopiedUsername(true);
-    setTimeout(() => setCopiedUsername(false), 2000);
-  };
-
-  const handleCopyAddress = () => {
-    if (defaultWallet?.address) {
-      navigator.clipboard.writeText(defaultWallet.address);
-      setCopiedAddress(true);
-      setTimeout(() => setCopiedAddress(false), 2000);
-    }
-  };
-
-  const handleCopyAccountNumber = () => {
-    if (defaultWallet?.accountNumber) {
-      navigator.clipboard.writeText(defaultWallet.accountNumber);
-      setCopiedAccountNumber(true);
-      setTimeout(() => setCopiedAccountNumber(false), 2000);
-    }
-  };
 
   const shortAddress = defaultWallet?.address
     ? `${defaultWallet.address.slice(0, 8)}...${defaultWallet.address.slice(-6)}`
     : '';
 
-  // Generate VietQR image URL using Quicklink API
   const getVietQRImageUrl = () => {
     if (!defaultWallet || defaultWallet.type !== 'offchain') return null;
-
     const bankBin = BANK_BIN_MAP[defaultWallet.bankName || ''];
     if (!bankBin || !defaultWallet.accountNumber) return null;
-
-    // URL encode account name for safety
     const accountNameEncoded = encodeURIComponent(defaultWallet.accountName || '');
-
-    // VietQR Quicklink format - using compact template
     return `https://img.vietqr.io/image/${bankBin}-${defaultWallet.accountNumber}-compact.png?accountName=${accountNameEncoded}`;
   };
 
@@ -174,106 +155,129 @@ const Receive = () => {
       <div className="page-wrapper">
         {/* Header */}
         <div className="flex justify-between items-center mb-6 animate-fade-in">
-          <h1 className="text-xl font-bold">Receive</h1>
+          <h1 className="text-xl font-bold">Receive Payment</h1>
           <button onClick={() => navigate('/dashboard')} className="p-2 text-muted-foreground hover:text-foreground transition-colors">
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Content */}
         {isLoading ? (
           <div className="card-modern py-12 text-center text-muted-foreground text-sm animate-pulse">
             Loading...
           </div>
         ) : !defaultWallet ? (
-          /* No default wallet set */
           <div className="card-modern p-8 text-center">
-            <h3 className="text-lg font-semibold mb-2">No Default Wallet Set</h3>
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-secondary flex items-center justify-center">
+              <span className="text-2xl">💳</span>
+            </div>
+            <h3 className="text-lg font-semibold mb-2">No Payment Method Set</h3>
             <p className="text-sm text-muted-foreground mb-6">
               Set a default wallet or bank account to receive payments
             </p>
-            <button
-              onClick={() => navigate('/settings')}
-              className="btn-primary"
-            >
+            <button onClick={() => navigate('/settings')} className="btn-primary">
               Go to Settings
             </button>
           </div>
         ) : (
-          <div className="flex flex-col gap-3 animate-slide-up">
-            {/* Username - Always shown, copyable */}
-            <button
-              onClick={handleCopyUsername}
-              className="card-modern w-full flex items-center justify-between"
-            >
-              <div>
-                <p className="text-xs text-muted-foreground mb-0.5">Username</p>
-                <p className="font-medium text-lg">@{username}</p>
+          <div className="space-y-4 animate-slide-up">
+            {/* Hero Banner - Only show for crypto wallets */}
+            {defaultWallet.type === 'onchain' && (
+              <div className="rounded-2xl bg-gradient-to-r from-primary/10 to-primary/5 p-5">
+                <div className="flex items-center gap-3 mb-1">
+                  <span className="text-xl">💰</span>
+                  <div>
+                    <p className="font-semibold">Share & Get Paid</p>
+                    <p className="text-sm text-muted-foreground">
+                      Share your username or wallet address
+                    </p>
+                  </div>
+                </div>
               </div>
-              {copiedUsername ? (
-                <Check className="w-5 h-5 text-success" />
-              ) : (
-                <Copy className="w-5 h-5 text-muted-foreground" />
-              )}
-            </button>
+            )}
 
-            {defaultWallet.type === 'onchain' ? (
-              /* Crypto Wallet: Wallet Address - copyable */
-              <button
-                onClick={handleCopyAddress}
-                className="card-modern w-full flex items-center justify-between"
+            {/* QR Code for Bank */}
+            {defaultWallet.type === 'offchain' && vietQRUrl && (
+              <div className="card-modern p-6 text-center">
+                <img
+                  src={vietQRUrl}
+                  alt="VietQR Code"
+                  className="w-56 h-auto mx-auto object-contain"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = 'none';
+                  }}
+                />
+              </div>
+            )}
+
+            {/* Payment Info Card */}
+            <div className="card-modern divide-y divide-border">
+              {/* Username - Always shown */}
+              <div
+                className="flex items-center justify-between p-4 cursor-pointer hover:bg-secondary/30 transition-colors"
+                onClick={() => copyToClipboard(`@${username}`, 'username')}
               >
                 <div>
-                  <p className="text-xs text-muted-foreground mb-0.5">Wallet Address</p>
-                  <p className="font-mono text-sm">{shortAddress}</p>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider">Username</p>
+                  <p className="font-semibold text-lg mt-0.5">@{username}</p>
                 </div>
-                {copiedAddress ? (
+                {copiedField === 'username' ? (
                   <Check className="w-5 h-5 text-success" />
                 ) : (
                   <Copy className="w-5 h-5 text-muted-foreground" />
                 )}
-              </button>
-            ) : (
-              /* Bank Account: VietQR + Bank Info */
-              <>
-                {/* VietQR Image */}
-                {vietQRUrl && (
-                  <div className="card-modern p-6 flex justify-center">
-                    <img
-                      src={vietQRUrl}
-                      alt="VietQR Code"
-                      className="w-64 h-auto object-contain"
-                      onError={(e) => {
-                        // Hide image if VietQR fails to load
-                        (e.target as HTMLImageElement).style.display = 'none';
-                      }}
-                    />
-                  </div>
-                )}
+              </div>
 
-                {/* Bank Name - display only */}
-                <div className="card-modern w-full">
-                  <p className="text-xs text-muted-foreground mb-0.5">Bank</p>
-                  <p className="font-medium">{defaultWallet.bankName}</p>
-                </div>
-
-                {/* Account Number - copyable */}
-                <button
-                  onClick={handleCopyAccountNumber}
-                  className="card-modern w-full flex items-center justify-between"
+              {defaultWallet.type === 'onchain' ? (
+                /* Wallet Address */
+                <div
+                  className="flex items-center justify-between p-4 cursor-pointer hover:bg-secondary/30 transition-colors"
+                  onClick={() => defaultWallet.address && copyToClipboard(defaultWallet.address, 'address')}
                 >
                   <div>
-                    <p className="text-xs text-muted-foreground mb-0.5">Account Number</p>
-                    <p className="font-mono text-sm">{defaultWallet.accountNumber}</p>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider">Wallet Address</p>
+                    <p className="font-mono text-sm mt-0.5">{shortAddress}</p>
                   </div>
-                  {copiedAccountNumber ? (
+                  {copiedField === 'address' ? (
                     <Check className="w-5 h-5 text-success" />
                   ) : (
                     <Copy className="w-5 h-5 text-muted-foreground" />
                   )}
-                </button>
-              </>
-            )}
+                </div>
+              ) : (
+                /* Bank Details */
+                <>
+                  <div className="flex items-center justify-between p-4">
+                    <div>
+                      <p className="text-xs text-muted-foreground uppercase tracking-wider">Bank</p>
+                      <p className="font-medium mt-0.5">{defaultWallet.bankName}</p>
+                    </div>
+                  </div>
+                  <div
+                    className="flex items-center justify-between p-4 cursor-pointer hover:bg-secondary/30 transition-colors"
+                    onClick={() => defaultWallet.accountNumber && copyToClipboard(defaultWallet.accountNumber, 'account')}
+                  >
+                    <div>
+                      <p className="text-xs text-muted-foreground uppercase tracking-wider">Account Number</p>
+                      <p className="font-mono font-semibold text-lg mt-0.5">{defaultWallet.accountNumber}</p>
+                    </div>
+                    {copiedField === 'account' ? (
+                      <Check className="w-5 h-5 text-success" />
+                    ) : (
+                      <Copy className="w-5 h-5 text-muted-foreground" />
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Share Button */}
+            <button
+              onClick={handleShare}
+              className="w-full py-4 rounded-xl border border-border hover:bg-secondary/50 transition-colors flex items-center justify-center gap-2 font-medium"
+            >
+              <Share2 className="w-5 h-5" />
+              Share Payment Details
+            </button>
           </div>
         )}
       </div>

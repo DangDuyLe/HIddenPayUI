@@ -177,7 +177,13 @@ export type KycLinkResponseDto = {
 };
 
 export type KycStatusResponseDto = {
-  status: 'unverified' | 'pending' | 'verified' | string;
+  kycStatus: 'unverified' | 'pending' | 'verified' | 'approved' | string;
+  userId?: string;
+  username?: string;
+  walletAddress?: string;
+  firstName?: string;
+  lastName?: string;
+  canTransfer?: boolean;
 };
 
 export const getKycLink = (dto: { walletAddress: string }) => api.post<KycLinkResponseDto>('/kyc/get-link', dto);
