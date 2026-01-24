@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useCurrentAccount } from '@mysten/dapp-kit';
 import { useWallet } from '@/context/WalletContext';
 import { useAuth } from '@/context/AuthContext';
-import { checkUsername, postOnboarding, postRegister } from '@/services/api';
+import { checkUsername, postRegister } from '@/services/api';
 import { toast } from 'sonner';
 import { Mail, Users } from 'lucide-react';
 
@@ -36,6 +36,12 @@ const Onboarding = () => {
   const handleSubmit = async () => {
     const clean = inputUsername.replace('@', '').trim().toLowerCase();
 
+    // Validate username is not null/empty
+    if (!clean || clean.length === 0) {
+      setError('Username cannot be empty');
+      return;
+    }
+
     if (clean.length < 3) {
       setError('Username must be at least 3 characters');
       return;
@@ -62,31 +68,19 @@ const Onboarding = () => {
         return;
       }
 
-      await postOnboarding({
+      // CRITICAL: Final validation before API call
+      if (!clean || !currentAccount?.address) {
+        setError('Missing required information');
+        return;
+      }
+
+      // Register user with backend (creates user + registers with Gaian)
+      await postRegister({
+        walletAddress: currentAccount.address,
         username: clean,
         email: email || undefined,
         referralUsername: referral || undefined,
       });
-
-      if (!currentAccount?.address) {
-        throw new Error('No wallet connected');
-      }
-
-      try {
-        await postRegister({
-          walletAddress: currentAccount.address,
-          username: clean,
-          email: email || undefined,
-        });
-      } catch (err: unknown) {
-        const e = err as { response?: { status?: number }; message?: string };
-        const status = e?.response?.status;
-        const message = typeof e?.message === 'string' ? e.message : '';
-
-        if (status !== 409 && !message.includes('status code 409')) {
-          throw err;
-        }
-      }
 
       setUsername(clean);
 
@@ -100,8 +94,7 @@ const Onboarding = () => {
       try {
         await refreshProfile();
       } catch {
-        // Profile refresh failed, but user is created - proceed anyway
-        console.warn('Profile refresh failed, proceeding to dashboard');
+
       }
 
       clearTimeout(redirectTimeout);

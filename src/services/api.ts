@@ -78,19 +78,48 @@ export const postZkLoginRegister = (dto: { nonceBase64Url: string; maxEpoch: num
   api.post('/auth/zklogin/register', dto);
 export const postZkLoginVerify = (dto: unknown) => api.post('/auth/zklogin/verify', dto);
 export type RegisterRequestDto = {
-  walletAddress: string;
   username: string;
+  walletAddress: string;
   email?: string;
+  referralUsername?: string;
 };
 
-export const postRegister = (dto: RegisterRequestDto) => api.post('/wallet/register', dto);
+export const postRegister = (dto: RegisterRequestDto) => {
+  // CRITICAL: Validate username is not null/empty
+  if (!dto.username || dto.username.trim().length === 0) {
+    console.error('[API ERROR] Attempt to register with null/empty username:', {
+      dto,
+      timestamp: new Date().toISOString(),
+      stackTrace: new Error().stack,
+    });
+    throw new Error('Username cannot be null or empty');
+  }
+
+  // Validate wallet address
+  if (!dto.walletAddress || dto.walletAddress.trim().length === 0) {
+    console.error('[API ERROR] Attempt to register with null/empty wallet address:', {
+      dto,
+      timestamp: new Date().toISOString(),
+      stackTrace: new Error().stack,
+    });
+    throw new Error('Wallet address cannot be null or empty');
+  }
+
+  console.log('[API] Registering user:', {
+    username: dto.username,
+    walletAddress: dto.walletAddress,
+    hasEmail: !!dto.email,
+    hasReferral: !!dto.referralUsername,
+    timestamp: new Date().toISOString(),
+  });
+
+  return api.post('/auth/register', dto);
+};
 
 export const getProfile = () => api.get('/users/profile');
 
 export const updateProfile = (dto: { email?: string; firstName?: string; lastName?: string }) =>
   api.patch('/users/profile', dto);
-
-export const changeUsername = (newUsername: string) => api.patch('/users/profile/username', { newUsername });
 
 // User lookup for transfers
 export type LookupUserDefaultWallet =
@@ -106,18 +135,31 @@ export type LookupUserResponseDto = {
   defaultWallet: LookupUserDefaultWallet | null;
 };
 
-export const lookupUser = (username: string) =>
-  api.get<LookupUserResponseDto>(`/users/lookup?username=${username}`);
+export const lookupUser = (username: string) => {
+  if (!username || username.trim().length === 0) {
+    throw new Error('Username cannot be null or empty');
+  }
+  return api.get<LookupUserResponseDto>(`/users/lookup?username=${username}`);
+};
 
 export type CheckUsernameResponseDto = {
   available: boolean;
 };
 
-export const checkUsername = (username: string) =>
-  api.get<CheckUsernameResponseDto>('/users/check-username', { params: { username } });
+export const checkUsername = (username: string) => {
+  if (!username || username.trim().length === 0) {
+    throw new Error('Username cannot be null or empty');
+  }
+  return api.get<CheckUsernameResponseDto>('/users/check-username', { params: { username } });
+};
 
-export const postOnboarding = (dto: { username: string; email?: string; referralUsername?: string }) =>
-  api.post('/users/onboarding', dto);
+export const changeUsername = (newUsername: string) => {
+  if (!newUsername || newUsername.trim().length === 0) {
+    throw new Error('New username cannot be null or empty');
+  }
+  return api.patch('/users/profile/username', { newUsername });
+};
+
 
 export const scanQr = async (qrString: string) => {
   const data = await getData(api.post('/transfer/scan', { qrString }));
